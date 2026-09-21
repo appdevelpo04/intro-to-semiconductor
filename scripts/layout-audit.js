@@ -11,22 +11,12 @@
 import { chromium } from 'playwright';
 import { spawn } from 'node:child_process';
 
-const PAGE_URL = process.env.PAGE_URL || 'http://localhost:4321/';
+import { resolvePageUrl } from './page-url.js';
+
 const OUT = new URL('../screenshots/', import.meta.url).pathname;
 const ROOT = new URL('..', import.meta.url).pathname;
 
-let devProc = null;
-async function up(){
-  try { const r = await fetch(PAGE_URL, { signal: AbortSignal.timeout(1500) }); return r.ok; }
-  catch { return false; }
-}
-if (!(await up())){
-  console.log('no dev server on :4321 — starting astro dev …');
-  devProc = spawn('bun', ['x', 'astro', 'dev', '--port', '4321'], { cwd: ROOT, stdio: 'ignore' });
-}
-let ready = false;
-for (let i = 0; i < 60 && !ready; i++){ ready = await up(); if (!ready) await new Promise(r => setTimeout(r, 500)); }
-if (!ready){ console.error('dev server never came up on ' + PAGE_URL); process.exit(2); }
+const { url: PAGE_URL, proc: devProc } = await resolvePageUrl();
 
 const browser = await chromium.launch();
 const VIEWPORTS = [[1440, 900], [1280, 700], [1920, 1080]];

@@ -72,7 +72,7 @@ const ARROWS = [
 /* =====================================================
    1.  BAND DIAGRAM  (energy vs position)
    ===================================================== */
-export function renderBand(canvas, model, animFrac){
+export function renderBand(canvas, model, animFrac, opts){
   const { ctx, w, h } = fitCanvas(canvas);
   const g = geom(w, h);
   const p = model.params;
@@ -257,13 +257,30 @@ export function renderBand(canvas, model, animFrac){
 
   // ---- f(E) inset: Fermi–Dirac sigmoid with exponential tail (bottom-left) ----
   {
-    const iw = 150, ih = 64, ix = metalX0 + 10, iy0 = yBot - ih - 8;
+    const iw = 150, ih = 64, ix = metalX0 + 10;
+    // The legend is a DOM overlay pinned to the same bottom-left corner, so on
+    // narrower viewports (where it wraps to 2–4 rows) it would cover the inset
+    // completely. Callers pass how much of the canvas bottom it occupies and we
+    // lift the inset above it — the sigmoid is the point of the inset, so it must
+    // never end up behind another element.
+    const reserve = Math.max(0, (opts && opts.reservedBottom) || 0);
+    const iy0 = Math.max(g.pad.top + 6,
+                 Math.min(yBot - ih - 8, yBot - reserve - ih - 8));
     // window: ±10 kT around E_F
     const dE = 10 * kT;
     const fy = E => iy0 + ih * (1 - BANDMODEL.fermiDirac(E, lvl.Ef_m, p.T));
     const fxE = E => ix + ((E - (lvl.Ef_m - dE)) / (2 * dE)) * iw;
-    // frame
-    ctx.strokeStyle = 'rgba(138,151,196,0.35)'; ctx.lineWidth = 1;
+    // opaque plate so the sigmoid stays legible on top of the metal fill
+    ctx.fillStyle = 'rgba(7,11,23,0.72)';
+    ctx.fillRect(ix, iy0, iw, ih);
+
+    // frame — accent tint + thicker border while hovered (magnify affordance)
+    if (_fermiHover){
+      ctx.fillStyle = 'rgba(0,229,176,0.10)';
+      ctx.fillRect(ix, iy0, iw, ih);
+    }
+    ctx.strokeStyle = _fermiHover ? C.vbi : 'rgba(138,151,196,0.35)';
+    ctx.lineWidth = _fermiHover ? 1.5 : 1;
     ctx.strokeRect(ix, iy0, iw, ih);
     // sigmoid curve
     ctx.strokeStyle = C.fermi; ctx.lineWidth = 1.6;
@@ -282,13 +299,23 @@ export function renderBand(canvas, model, animFrac){
     ctx.lineTo(fxE(lvl.Ef_m), iy0 + ih); ctx.lineTo(ix + iw, iy0 + ih);
     ctx.stroke();
     ctx.setLineDash([]);
+    // magnifier glyph (top-right, inside the frame) — always-on click affordance
+    {
+      const gx = ix + iw - 11, gy = iy0 + 9;
+      ctx.strokeStyle = _fermiHover ? C.vbi : 'rgba(138,151,196,0.6)';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.arc(gx, gy, 3.4, 0, 2 * Math.PI); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(gx + 2.5, gy + 2.5); ctx.lineTo(gx + 5.4, gy + 5.4); ctx.stroke();
+    }
     // labels
-    ctx.fillStyle = C.textDim;
+    ctx.fillStyle = _fermiHover ? 'rgba(232,238,250,0.95)' : C.textDim;
     ctx.font = '9px "JetBrains Mono", monospace';
     ctx.textAlign = 'left'; ctx.textBaseline = 'top';
     ctx.fillText('f(E)  kT = ' + fmt(kT) + ' eV', ix + 4, iy0 + 3);
     ctx.textBaseline = 'bottom';
     ctx.fillText('E_F', fxE(lvl.Ef_m) + 3, iy0 + ih - 2);
+    // publish the rect — main.js anchors the magnify chip to it and hit-tests clicks
+    _fermiInset = { x: ix, y: iy0, w: iw, h: ih };
   }
 
   // depletion hatching
@@ -332,6 +359,31 @@ export function renderBand(canvas, model, animFrac){
   });
 }
 let _targets = [];
+
+/* ---------- Fermi–Dirac inset (bottom-left of the band diagram) ----------
+   _fermiInset is the inset rect in CSS pixels inside the band canvas (same
+   frame as _targets). main.js anchors its "magnify" chip to this rect and
+   opens the hero modal when the inset is clicked; _fermiHover drives the
+   accent highlight painted over the inset while the pointer is on it. */
+let _fermiInset = null;
+let _fermiHover = false;
+
+export function getFermiInset(){ return _fermiInset; }
+
+export function hitTestFermiInset(mx, my){
+  if (!_fermiInset) return false;
+  const s = 6;                                   // a little slop → easier clicking
+  return mx >= _fermiInset.x - s && mx <= _fermiInset.x + _fermiInset.w + s &&
+         my >= _fermiInset.y - s && my <= _fermiInset.y + _fermiInset.h + s;
+}
+
+/* returns true only when the hover state actually changed (caller repaints) */
+export function setFermiHover(on){
+  const v = !!on;
+  if (v === _fermiHover) return false;
+  _fermiHover = v;
+  return true;
+}
 
 /* =====================================================
    2.1  drawEnergyGrid  — horizontal eV gridlines + labels

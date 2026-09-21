@@ -9,10 +9,12 @@
  */
 'use strict';
 
-import { renderBand, renderGraph, hitTestBand, getArrowTargets } from './render.js';
+import { renderBand, renderGraph, hitTestBand, getArrowTargets,
+         getFermiInset, hitTestFermiInset, setFermiHover } from './render.js';
 import { BANDMODEL, PRESETS } from './bandmodel.js';
 import { LABELS, fmt, fmtSI } from './labels.js';
 import { open as openDetail, close as closeDetail } from './detail.js';
+import { initFermiOverlay, updateFermiModel, openFermi } from './fermi.js';
 
 const $ = (id) => document.getElementById(id);
 const bandCanvas = $('bandCanvas');
@@ -153,26 +155,143 @@ function writeStatus(m) {
 
 /* ============================ legend ============================ */
 const legendClose = $('legendClose');
+const legendRestore = $('legendRestore');
+let legendTouched = false;      // user pressed × / Show legend at least once
+/* A wrapped legend is ~30px per row, so on a phone it grows taller than the band
+   diagram it annotates and hides the f(E) inset (and every band edge) behind it.
+   Past that point the legend is worth more as an opt-in: collapse it and leave the
+   "Show legend" chip in its place. Only applies until the user decides for
+   themselves — after that we honour their choice at every size. */
+const LEGEND_MAX_CANVAS_FRACTION = 0.35;
+function legendCrowdsPlot(){
+  if (!legend || !bandCanvas) return false;
+  const lh = legend.getBoundingClientRect().height;
+  const ch = bandCanvas.getBoundingClientRect().height;
+  return lh > 0 && ch > 0 && lh > ch * LEGEND_MAX_CANVAS_FRACTION;
+}
+function applyLegendDismiss(dismissed){
+  if (!legend) return;
+  legend.classList.toggle('dismissible', dismissed);
+  updateLegendRestoreVisibility();
+  // The legend is a canvas overlay: its footprint IS the reserve that lifts the
+  // f(E) inset, so any change to it has to trigger a repaint.
+  if (lastModel){ paintBand(); positionFermiBtn(); }
+}
 function toggleLegend() {
   if (!legend) return;
-  legend.classList.toggle('dismissible');
-  // Persist preference in sessionStorage so it survives re-renders but not page reloads
+  legendTouched = true;
+  const dismissed = !legend.classList.contains('dismissible');
+  applyLegendDismiss(dismissed);
+  // Only an explicit choice is persisted — autoCollapseLegend must stay free to
+  // re-flow the legend as the viewport changes.
+  sessionStorage.setItem('schottkyLegendDismissed', dismissed ? 'true' : 'false');
+}
+/* Called on boot and on resize: keeps the auto-collapse honest as the layout
+   reflows (a phone rotating to landscape has room for the legend again). */
+function autoCollapseLegend(){
+  if (legendTouched || !legend) return;
+  applyLegendDismiss(legendCrowdsPlot());
+}
+function updateLegendRestoreVisibility() {
+  if (!legend || !legendRestore) return;
   if (legend.classList.contains('dismissible')) {
-    sessionStorage.setItem('schottkyLegendDismissed', 'true');
+    legendRestore.classList.add('visible');
+    legendRestore.hidden = false;
   } else {
-    sessionStorage.removeItem('schottkyLegendDismissed');
+    legendRestore.classList.remove('visible');
+    legendRestore.hidden = true;
   }
 }
 function initLegend() {
-  // Restore previous dismissal state if it exists
-  if (sessionStorage.getItem('schottkyLegendDismissed') === 'true') {
-    legend.classList.add('dismissible');
-  }
+  // Restore previous dismissal state if it exists; a stored 'false' means the
+  // user explicitly asked for the legend, so auto-collapse must keep hands off.
+  const stored = sessionStorage.getItem('schottkyLegendDismissed');
+  if (stored === 'true'){ legendTouched = true; legend.classList.add('dismissible'); }
+  else if (stored === 'false'){ legendTouched = true; }
   // Attach close button handler
   if (legendClose) {
     legendClose.addEventListener('click', toggleLegend);
   }
+  // Attach restore button handler
+  if (legendRestore) {
+    legendRestore.addEventListener('click', toggleLegend);
+  }
+  autoCollapseLegend();
+  updateLegendRestoreVisibility();
 }
+
+/* ==================== Fermi–Dirac hero modal ==================== */
+const fermiBtn = $('fermiBtn');
+const plotWrap = $('plotWrap');
+
+/* The legend is a DOM overlay pinned to the bottom-left of the same panel body
+   as the band canvas, so at most widths it sits directly on the f(E) inset.
+   Measure what it covers (CSS px up from the canvas bottom) and hand that to
+   renderBand, which lifts the inset clear of it. Returns 0 when the legend is
+   dismissed or parked somewhere that can't reach the inset column. */
+function legendReserve(){
+  if (!legend || legend.classList.contains('dismissible')) return 0;
+  const lr = legend.getBoundingClientRect();
+  const cr = bandCanvas.getBoundingClientRect();
+  if (!lr.height || lr.top >= cr.bottom) return 0;
+  if (lr.left >= cr.left + 300) return 0;          // legend sits right of the inset
+  return Math.max(0, Math.round(cr.bottom - lr.top));
+}
+
+/* Single entry point for band repaints: every caller must pass the live legend
+   reserve, otherwise hovering (or the contact animation) would snap the inset
+   back down behind the legend mid-frame. */
+function paintBand(){
+  if (!lastModel) return;
+  renderBand(bandCanvas, lastModel, animFrac, { reservedBottom: legendReserve() });
+}
+
+/* Park the "Magnify f(E)" chip on the inset's top-right corner. The chip is a
+   real <button> (keyboard + a11y for free) while the inset is painted pixels on
+   the canvas, so we mirror the inset's live rect onto the button rather than
+   trying to make canvas pixels focusable. */
+function positionFermiBtn(){
+  if (!fermiBtn || !plotWrap) return;
+  const inset = getFermiInset();
+  if (!inset){ fermiBtn.classList.remove('visible'); return; }
+  const ready = !!lastModel;          // inset only exists once the band is drawn
+  fermiBtn.classList.toggle('visible', ready);
+  if (!ready) return;
+
+  const wrapBox = plotWrap.getBoundingClientRect();
+  const cvBox   = bandCanvas.getBoundingClientRect();
+  // both are measured in CSS px; the canvas is absolutely positioned at the
+  // wrap's top-left, so (cvBox - wrapBox) is the diagram's origin inside it
+  const w = fermiBtn.offsetWidth, h = fermiBtn.offsetHeight;
+  const left = (cvBox.left - wrapBox.left) + inset.x + inset.w - w;
+  const top  = (cvBox.top  - wrapBox.top ) + inset.y - h - 6;
+  fermiBtn.style.left = Math.max(4, Math.min(left, wrapBox.width  - w - 4)) + 'px';
+  fermiBtn.style.top  = Math.max(4, Math.min(top,  wrapBox.height - h - 4)) + 'px';
+}
+
+/* hover feedback: repainting the band gives the inset its accent frame */
+bandCanvas.addEventListener('mousemove', (ev) => {
+  if (!lastModel) return;
+  const over = hitTestFermiInset(ev.offsetX, ev.offsetY);
+  if (setFermiHover(over)) paintBand();
+  bandCanvas.style.cursor = over ? 'zoom-in' : '';
+});
+bandCanvas.addEventListener('mouseleave', () => {
+  if (setFermiHover(false)) paintBand();
+  bandCanvas.style.cursor = '';
+});
+/* the chip is the visible half of the same affordance — hovering it must light
+   the inset up too, so the link between button and canvas is obvious */
+fermiBtn?.addEventListener('mouseenter', () => { if (setFermiHover(true)) paintBand(); });
+fermiBtn?.addEventListener('mouseleave', () => { if (setFermiHover(false)) paintBand(); });
+
+function openFermiModal(){
+  if (!lastModel) return;
+  openFermi(lastModel);
+}
+fermiBtn?.addEventListener('click', openFermiModal);
+initFermiOverlay();            // overlay's own close button + Escape handling
+
 function buildLegend() {
   if (!legend) return;
   Object.entries(LABELS.arrows).forEach(([id, a]) => {
@@ -198,14 +317,19 @@ function update() {
   window.__SCHOTTKY_UPDATE_COUNT++;   // instrumentation for end-to-end tests
   lastModel = BANDMODEL.model(params);
   window.__SCHOTTKY_MODEL = lastModel;     // fallback for detail.js
+  updateFermiModel(lastModel);             // keep fermi modal in sync
   window.__SCHOTTKY_TARGETS = getArrowTargets();  // clickable arrow hit targets
   // Status FIRST: writing it can change the flex column's free space (status
   // grows from empty at boot), and the canvases below measure their wrapper
   // during fit — painting before the status settles made the graph canvas
   // keep a stale (too tall) inline size and spill over the slider rows.
   writeStatus(lastModel);
-  renderBand(bandCanvas, lastModel, animFrac);
+  paintBand();
   renderGraph(graphCanvas, lastModel);
+  // Published AFTER renderBand: the inset rect is written during the paint, so
+  // reading it earlier would expose the previous frame's geometry.
+  window.__SCHOTTKY_FERMI_INSET = getFermiInset(); // f(E) inset rect, for e2e tests
+  positionFermiBtn();                      // keep the chip glued to the inset
 }
 /* rAF-coalesced update: rapid slider drags collapse into a single paint per
    animation frame, avoiding the cumulative draw-load that froze the tab. */
@@ -253,9 +377,10 @@ contactBtn.addEventListener('click', () => {
   const step = (now) => {
     const u = Math.min(1, (now - t0) / dur);
     animFrac = from + (target - from) * easeInOut(u);
-    if (lastModel) renderBand(bandCanvas, lastModel, animFrac);
+    if (lastModel) paintBand();
+    positionFermiBtn();                    // the inset slides with the metal
     if (u < 1) animRAF = requestAnimationFrame(step);
-    else { animRAF = null; animFrac = target; }   // land EXACTLY on 0 or 1
+    else { animRAF = null; animFrac = target; positionFermiBtn(); }  // land EXACTLY on 0 or 1
   };
   animRAF = requestAnimationFrame(step);
 });
@@ -263,6 +388,9 @@ contactBtn.addEventListener('click', () => {
 /* ==================== arrow click → detail panel ==================== */
 bandCanvas.addEventListener('click', (ev) => {
   if (!lastModel) return;
+  // the f(E) inset wins: it sits under the metal, where arrow chips also live,
+  // and a click on the sigmoid should magnify it rather than open a detail card
+  if (hitTestFermiInset(ev.offsetX, ev.offsetY)){ openFermiModal(); return; }
   const id = hitTestBand(ev.offsetX, ev.offsetY);
   if (id) openDetail(id, lastModel);
 });
@@ -272,7 +400,11 @@ $('detailClose').addEventListener('click', closeDetail);
 let rsT = null;
 window.addEventListener('resize', () => {
   clearTimeout(rsT);
-  rsT = setTimeout(update, 120);
+  rsT = setTimeout(() => {
+    autoCollapseLegend();        // the legend may fit (or stop fitting) now
+    update();
+    positionFermiBtn();          // inset rect moved with the canvas
+  }, 120);
 });
 
 /* ============================ boot ============================ */

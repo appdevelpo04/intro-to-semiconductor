@@ -1,12 +1,13 @@
 /**
- * validate-live.js — loads http://localhost:4321/ in headless Chromium,
+ * validate-live.js — loads the running demo in headless Chromium,
  * captures console/page errors, checks canvases actually painted,
  * then exercises the interactive parts and screenshots the result.
  * Run: bun scripts/validate-live.js
  */
 import { chromium } from 'playwright';
+import { resolvePageUrl } from './page-url.js';
 
-const PAGE_URL = process.env.PAGE_URL || 'http://localhost:4321/';
+const { url: PAGE_URL } = await resolvePageUrl();
 const OUT = new URL('../screenshots/', import.meta.url).pathname;
 
 const consoleErrs = [];

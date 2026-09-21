@@ -11,6 +11,7 @@
     "check:physics": "bun scripts/physics-check.js",
     "check:contact": "bun scripts/validate-contact.js",
     "check:layout": "bun scripts/layout-audit.js",
+    "check:fermi": "bun scripts/fermi-audit.js",
     "check:live": "bun scripts/validate-live.js",
     "check": "bun run check:physics && bun run check:render && bun run check:layout && bun run check:contact && bun x astro build"
   },

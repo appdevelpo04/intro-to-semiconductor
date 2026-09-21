@@ -19,29 +19,16 @@
  * Run: bun scripts/validate-contact.js
  */
 import { chromium } from 'playwright';
-import { spawn } from 'node:child_process';
+import { resolvePageUrl } from './page-url.js';
 
-const PAGE_URL = process.env.PAGE_URL || 'http://localhost:4321/';
 const OUT = new URL('../screenshots/', import.meta.url).pathname;
-const ROOT = new URL('..', import.meta.url).pathname;
 
 const results = [];
 const fail = (id, msg) => { results.push([id, false]); console.log('  FAIL', id, '—', msg); };
 const pass = (id, msg) => { results.push([id, true]); console.log('  pass', id, '—', msg); };
 
 /* ---------- server preflight: reuse a running dev server or start one ---------- */
-let devProc = null;
-async function up(){
-  try { const r = await fetch(PAGE_URL, { signal: AbortSignal.timeout(1500) }); return r.ok; }
-  catch { return false; }
-}
-if (!(await up())){
-  console.log('no dev server on :4321 — starting astro dev …');
-  devProc = spawn('bun', ['x', 'astro', 'dev', '--port', '4321'], { cwd: ROOT, stdio: 'ignore' });
-}
-let ready = false;
-for (let i = 0; i < 60 && !ready; i++){ ready = await up(); if (!ready) await new Promise(r => setTimeout(r, 500)); }
-if (!ready){ console.error('dev server never came up on ' + PAGE_URL); process.exit(2); }
+const { url: PAGE_URL, proc: devProc } = await resolvePageUrl();
 
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
