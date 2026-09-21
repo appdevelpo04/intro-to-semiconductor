@@ -152,6 +152,27 @@ function writeStatus(m) {
 }
 
 /* ============================ legend ============================ */
+const legendClose = $('legendClose');
+function toggleLegend() {
+  if (!legend) return;
+  legend.classList.toggle('dismissible');
+  // Persist preference in sessionStorage so it survives re-renders but not page reloads
+  if (legend.classList.contains('dismissible')) {
+    sessionStorage.setItem('schottkyLegendDismissed', 'true');
+  } else {
+    sessionStorage.removeItem('schottkyLegendDismissed');
+  }
+}
+function initLegend() {
+  // Restore previous dismissal state if it exists
+  if (sessionStorage.getItem('schottkyLegendDismissed') === 'true') {
+    legend.classList.add('dismissible');
+  }
+  // Attach close button handler
+  if (legendClose) {
+    legendClose.addEventListener('click', toggleLegend);
+  }
+}
 function buildLegend() {
   if (!legend) return;
   Object.entries(LABELS.arrows).forEach(([id, a]) => {
@@ -168,6 +189,7 @@ function buildLegend() {
   legend.appendChild(tip);
 }
 buildLegend();
+initLegend();
 
 /* ============================ update ============================ */
 window.__SCHOTTKY_UPDATE_COUNT = 0;
