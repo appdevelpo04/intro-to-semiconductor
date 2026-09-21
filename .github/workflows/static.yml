@@ -37,8 +37,10 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Run validation checks
-        run: bun run check
+      - name: Run physics & render validation (pure Node.js checks)
+        run: |
+          bun run check:physics
+          bun run check:render
         env:
           CI: true
 

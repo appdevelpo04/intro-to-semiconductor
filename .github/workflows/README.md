@@ -18,11 +18,9 @@ This is the main deployment workflow that:
    - Checks out the repository
    - Sets up Bun (JavaScript runtime)
    - Installs dependencies via `bun install`
-   - Runs validation checks (`bun run check`) including:
-     - Physics validation
-     - Render checks
-     - Layout audit
-     - Contact validation
+   - Runs **pure Node.js validation checks** (no browser required):
+     - Physics validation (`bun run check:physics`)
+     - Render checks (`bun run check:render`)
    - Builds the Astro site (`bun run build`)
    - Uploads the `./dist` folder as a deploy artifact
 
