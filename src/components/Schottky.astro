@@ -1,0 +1,60 @@
+---
+// Schottky contact interactive demo — two panels:
+//   LEFT  : band-alignment canvas (Au | MoS₂)
+//   RIGHT : I–V graph canvas + sliders + status + legend
+---
+<section class="schottky">
+  <header class="topbar">
+    <div>
+      <h1>Au | MoS₂ Schottky Contact — Band Alignment</h1>
+      <p class="sub">2H semiconducting phase · ideal n-type contact</p>
+    </div>
+    <div class="formula">
+      Φ<sub>B</sub> = Φ<sub>m</sub> − χ<sub>s</sub>
+      <small>&nbsp; (n-type, ideal)</small>
+    </div>
+  </header>
+
+  <div class="main">
+    <!-- LEFT: band-alignment plot -->
+    <section class="panel-plot">
+      <div class="panel-header">
+        <h2>Band alignment <span class="muted">(energy vs. position)</span></h2>
+        <button class="btn-ghost contact-btn" id="contactToggle" type="button">Make contact</button>
+      </div>
+      <div class="panel-body">
+        <div class="canvas-wrap" id="plotWrap">
+          <canvas id="bandCanvas" aria-label="Band alignment diagram of Au and MoS₂"></canvas>
+        </div>
+        <div class="detail-panel" id="detailPanel" role="dialog" aria-label="Parameter detail">
+          <button class="d-close" id="detailClose" type="button" aria-label="Close detail">×</button>
+          <div class="d-title" id="detailTitle">Parameter</div>
+          <div class="d-body" id="detailBody"></div>
+        </div>
+        <div class="legend" id="legendItems"></div>
+      </div>
+    </section>
+
+    <!-- RIGHT: I–V graph + controls -->
+    <section class="panel-graph">
+      <div class="panel-header">
+        <h2>I–V characteristic <span class="muted">(thermionic emission)</span></h2>
+      </div>
+      <div class="panel-body">
+        <div class="canvas-wrap" id="graphWrap">
+          <canvas id="graphCanvas" aria-label="Current–voltage characteristic of the Schottky diode"></canvas>
+        </div>
+      </div>
+
+      <div class="controls" id="controls"></div>
+
+      <div class="status" id="statusBar"></div>
+    </section>
+  </div>
+</section>
+
+<script>
+  // Astro-processed script: bundled+hashed at build time, served as module in dev.
+  // main.js imports render.js itself, so one entry point is enough.
+  import '../assets/js/main.js';
+</script>

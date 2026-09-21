@@ -1,0 +1,383 @@
+/**
+ * style.css
+ * Projector-friendly dark theme for the Au | MoS₂ Schottky contact presentation.
+ * - Large, readable typography
+ * - High-contrast accent colors
+ * - Responsive two-column layout: [band plot] [controls + I–V graph]
+ */
+
+:root {
+  --bg: #070b17;
+  --panel: #0e1529;
+  --panel-2: #121a32;
+  --line: #22305a;
+  --text: #e8eefa;
+  --muted: #8a97c4;
+  --accent: #00e5b0;
+
+  .topbar .sub {
+    margin: 4px 0 0;
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 400;
+  }
+
+  --accent-2: #ffb347;
+  --accent-3: #5aaaff;
+  --warn: #ff6b6b;
+  --ok: #3df0c0;
+  --mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SF Mono', monospace;
+  --sans: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 17px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  /* Constrain to the viewport so only .main scrolls (no double window scroll,
+     no clipped bottom) — adapts to whatever the topbar height actually is. */
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ---------- Top bar ---------- */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  background: linear-gradient(180deg, #0a1024 0%, #070b17 100%);
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.topbar h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+.topbar .formula {
+  font-family: var(--mono);
+  color: var(--accent);
+  background: rgba(0, 229, 176, 0.08);
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 229, 176, 0.25);
+  font-size: 15px;
+}
+.topbar .formula small {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+/* The wrapper between body and .main must be a bounded flex container,
+   otherwise .main's flex:1/overflow:auto never engage (auto-height box
+   never overflows itself) and body's overflow:hidden just clips content. */
+.schottky {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------- Main layout ---------- */
+.main {
+  display: grid;
+  grid-template-columns: 1fr 370px;
+  /* Panels are exactly the viewport height minus the topbar; the right
+     column scrolls internally (see .panel-graph) instead of pushing the
+     whole page taller. */
+  grid-template-rows: minmax(0, 1fr);
+  gap: 0;
+  flex: 1;
+  min-height: 0;
+  /* .main is the scroll region: body is height:100vh with overflow hidden, so
+     this panel flexes to fill the space below the topbar and scrolls its own
+     content (naturally fills 100vh minus topbar regardless of its height). */
+  overflow: auto;
+}
+
+/* The right panel scrolls as its own column (graph + sliders + status) so
+   everything stays reachable on short projectors — requires .main's
+   grid-template-rows: minmax(0,1fr) to give it a bounded height. */
+.panel-graph {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.panel-plot {
+  position: relative;
+  background: var(--panel);
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--line);
+}
+.panel-graph {
+  background: var(--panel);
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-header {
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  background: rgba(18, 26, 50, 0.6);
+  /* identical fixed band on both panels → panel bodies start at the same y */
+  min-height: 46px;
+}
+.panel-header h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  font-family: var(--sans);
+}
+/* Right column is only 370px: keep its header on ONE line so both panel
+   bodies start at the same y (left header is single-line at 15px). */
+.panel-graph .panel-header h2 {
+  font-size: 12.5px;
+  letter-spacing: 0.5px;
+}
+.panel-body {
+  flex: 1 1 auto;
+  position: relative;
+  /* Never shrink below the graph's usable height: if the column can't fit
+     everything, .panel-graph scrolls instead of the canvas spilling over
+     the slider rows (min-height:0 here is what let the overlap happen). */
+  min-height: 280px;
+  display: flex;
+  align-items: stretch;
+}
+
+/* ---------- Canvas containers ---------- */
+.canvas-wrap {
+  flex: 1;
+  position: relative;
+  min-height: 0;
+  min-width: 0;
+}
+canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  image-rendering: crisp-edges;
+}
+
+/* ---------- Controls sidebar ---------- */
+.controls {
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--line);
+  padding: 14px 18px 16px;
+  flex: 0 0 auto;
+  /* No max-height / internal scroll: .panel-graph scrolls as a whole, so a
+     nested scroll region here would just double-scroll and starve the graph. */
+}
+.controls .control-group { margin-bottom: 11px; }
+.controls .control-group:last-child { margin-bottom: 2px; }
+.controls label.row {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 13.5px; color: var(--muted); margin-bottom: 4px;
+}
+.controls label.row .val {
+  font-family: var(--mono); color: var(--text);
+  background: rgba(0,0,0,0.28); padding: 0 6px;
+  border-radius: 4px; font-size: 13px; line-height: 1.6;
+  min-width: 3.6em; text-align: right;
+}
+.controls input[type="range"] {
+  -webkit-appearance: none; appearance: none;
+  display: block;
+  margin: 0;                       /* UA default offset broke right-edge alignment */
+  width: 100%; height: 6px;
+  background: var(--line);
+  border-radius: 4px; outline: none; cursor: pointer;
+}
+.controls input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 16px; height: 16px;
+  background: var(--accent);
+  border-radius: 50%; border: 2px solid #070b17;
+  cursor: pointer; transition: 0.08s;
+}
+.controls input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.15); background: #5fffd4;
+}
+
+/* ---------- slider rows built by main.js ---------- */
+/* Grid: label (left) + value chip (right) share line 1, slider spans line 2.
+   Keeps the chips right-aligned with the slider edge and halves the height
+   of the controls block (was a ragged 3-row stack per parameter). */
+.ctl-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 4px;
+  margin-bottom: 12px;
+  font-size: 13.5px;
+  color: var(--muted);
+}
+.ctl-row .ctl-label { grid-column: 1; grid-row: 1; margin-bottom: 0; }
+.ctl-row .ctl-val   { grid-column: 2; grid-row: 1; }
+.ctl-row input[type="range"] { grid-column: 1 / -1; grid-row: 2; }
+.ctl-label .unit { opacity: 0.65; font-size: 12px; }
+.ctl-val {
+  font-family: var(--mono); color: var(--text);
+  background: rgba(0,0,0,0.28);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 12.5px;
+  width: 7.5em;
+  text-align: right;
+  outline: none;
+  transition: border-color 0.12s;
+}
+.ctl-val:hover { border-color: rgba(138,151,196,0.5); }
+.ctl-val:focus { border-color: var(--accent); background: rgba(0,0,0,0.45); }
+.ctl-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.badge {
+  font-family: var(--mono); font-size: 11px; font-weight: 600;
+  padding: 1px 7px; border-radius: 4px; margin-right: 4px;
+}
+.badge.rectifying { color: #ffb347; border: 1px solid rgba(255,179,71,0.5); }
+.badge.ohmic { color: #3df0c0; border: 1px solid rgba(61,240,192,0.5); }
+
+.toggle-row {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 13px; color: var(--muted);
+  margin-top: 6px; padding: 6px 0; flex-wrap: wrap;
+}
+.toggle-row button {
+  background: transparent; border: 1px solid var(--line);
+  color: var(--text); padding: 4px 10px;
+  border-radius: 6px; font-size: 12.5px;
+  font-family: var(--sans); cursor: pointer; transition: all 0.12s;
+}
+.toggle-row button:hover { border-color: var(--accent); color: var(--accent); }
+.toggle-row button.active {
+  background: rgba(0,229,176,0.12); border-color: var(--accent); color: var(--accent);
+}
+
+.presets {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line);
+}
+.presets button {
+  background: rgba(90,170,255,0.07); border: 1px solid rgba(90,170,255,0.3);
+  color: var(--text); padding: 5px 10px;
+  border-radius: 6px; font-size: 12px; cursor: pointer;
+  font-family: var(--mono); transition: all 0.12s;
+}
+.presets button:hover {
+  background: rgba(90,170,255,0.15); border-color: var(--accent-3); color: var(--accent-3);
+}
+
+/* ---------- Floating click-detail panel ---------- */
+.detail-panel {
+  position: absolute; z-index: 30;
+  background: #0a0f22;
+  border: 1px solid var(--accent);
+  border-left: 3px solid var(--accent);
+  border-radius: 10px;
+  padding: 14px 16px; max-width: 320px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,229,176,0.15);
+  font-size: 13px; line-height: 1.6; color: var(--text);
+  backdrop-filter: blur(4px);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-4px) scale(0.98);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  font-family: var(--mono);
+}
+.detail-panel.visible {
+  opacity: 1; transform: translateY(0) scale(1); pointer-events: auto;
+}
+.detail-panel .d-title {
+  font-family: var(--sans); font-size: 12px;
+  text-transform: uppercase; letter-spacing: 0.6px;
+  color: var(--accent); margin-bottom: 8px; font-weight: 600;
+}
+.detail-panel .d-body {
+  white-space: pre-line; font-size: 12.5px; line-height: 1.65;
+  color: var(--text);
+}
+.detail-panel .d-body b { color: var(--accent-2); font-weight: 600; }
+.detail-panel .d-close {
+  position: absolute; top: 4px; right: 6px;
+  background: transparent; border: none; color: var(--muted);
+  font-size: 16px; cursor: pointer; pointer-events: auto;
+  padding: 2px 6px; border-radius: 4px; line-height: 1;
+}
+.detail-panel .d-close:hover { color: var(--warn); background: rgba(255,107,107,0.1); }
+
+/* ---------- Status bar ---------- */
+.status {
+  display: flex; align-items: center; gap: 4px 10px;
+  padding: 8px 16px; background: var(--panel-2);
+  border-top: 1px solid var(--line); font-size: 12px; line-height: 1.45;
+  flex-wrap: wrap;
+}
+.status .badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: 999px;
+  font-size: 12px; font-family: var(--mono); font-weight: 500;
+}
+.status .badge.ok   { color: var(--ok);    border: 1px solid rgba(61,240,192,0.3); background: rgba(61,240,192,0.07); }
+.status .badge.rect { color: var(--accent-2); border: 1px solid rgba(255,179,71,0.3); background: rgba(255,179,71,0.07); }
+.status .badge.warn { color: var(--warn);  border: 1px solid rgba(255,107,107,0.3); background: rgba(255,107,107,0.07); }
+.status .stat { display: flex; gap: 6px; color: var(--muted); }
+.status .stat b { color: var(--text); font-family: var(--mono); font-size: 12.5px; }
+/* each "name = value" pair wraps as a unit — no orphaned fragments like a
+   line starting with "= 0.65 V" */
+.status .stat-i { white-space: nowrap; }
+
+/* ---------- Legend ---------- */
+.legend {
+  position: absolute; bottom: 10px; left: 16px;
+  display: flex; flex-wrap: wrap; gap: 10px;
+  background: rgba(7,11,23,0.78); padding: 8px 12px;
+  border-radius: 8px; border: 1px solid var(--line);
+  backdrop-filter: blur(4px); font-size: 12px;
+  pointer-events: none; z-index: 5;
+}
+.legend .item { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+.legend .swatch { width: 16px; height: 3px; border-radius: 2px; }
+
+/* ---------- responsive ---------- */
+@media (max-width: 860px) {
+  .main { grid-template-columns: 1fr; grid-template-rows: none; } /* stacked: let .main scroll as a whole */
+  .panel-plot { border-right: none; border-bottom: 1px solid var(--line); }
+  .panel-plot .panel-body { min-height: 55vh; } /* keep the band plot usable when stacked */
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}

@@ -1,0 +1,24 @@
+{
+  "name": "semicoduct-presentation",
+  "type": "module",
+  "version": "1.0.0",
+  "description": "Au | MoS₂ Schottky contact — band alignment & I–V (school presentation)",
+  "scripts": {
+    "dev": "bun x astro dev --host",
+    "build": "bun x astro build",
+    "preview": "bun x astro preview",
+    "check:render": "bun scripts/render-check.js",
+    "check:physics": "bun scripts/physics-check.js",
+    "check:contact": "bun scripts/validate-contact.js",
+    "check:layout": "bun scripts/layout-audit.js",
+    "check:live": "bun scripts/validate-live.js",
+    "check": "bun run check:physics && bun run check:render && bun run check:layout && bun run check:contact && bun x astro build"
+  },
+  "dependencies": {
+    "astro": "^7.3.2"
+  },
+  "devDependencies": {
+    "@napi-rs/canvas": "^1.0.9",
+    "playwright": "^1.63.0"
+  }
+}
