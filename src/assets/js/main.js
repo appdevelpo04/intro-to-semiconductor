@@ -9,10 +9,12 @@
  */
 'use strict';
 
+import 'katex/dist/katex.min.css';   // KaTeX fonts + layout (bundled by Vite)
 import { renderBand, renderGraph, hitTestBand, getArrowTargets,
          getFermiInset, hitTestFermiInset, setFermiHover } from './render.js';
 import { BANDMODEL, PRESETS } from './bandmodel.js';
 import { LABELS, fmt, fmtSI } from './labels.js';
+import { texHTML, mdHTML, renderMathIn } from './math.js';
 import { open as openDetail, close as closeDetail } from './detail.js';
 import { initFermiOverlay, updateFermiModel, openFermi } from './fermi.js';
 
@@ -54,7 +56,9 @@ LABELS.sliders.forEach((s) => {
   const lab = document.createElement('label');
   lab.className = 'ctl-label';
   lab.htmlFor = 'sl-' + s.key;
-  lab.innerHTML = s.label + ' <span class="unit">[' + s.unit + ']</span>';
+  // KaTeX for the symbol, plain text kept for screen readers (aria via title)
+  lab.innerHTML = (s.tex ? texHTML(s.tex) : s.label) + ' <span class="unit">[' + s.unit + ']</span>';
+  lab.title = s.label;
 
   const val = document.createElement('input');
   val.type = 'text';
@@ -144,12 +148,12 @@ function writeStatus(m) {
   statusBar.innerHTML =
     badge +
     [
-      '<b>Φ_B</b> = ' + fmt(bh.Phi_B) + ' eV',
-      '<b>V_bi</b> = ' + fmt(bh.Vbi) + ' V',
-      '<b>W</b> = ' + fmtSI(dep.W) + ' m',
-      '<b>kT</b> = ' + fmt(m.kT) + ' eV',
-      '<b>I_s</b> = ' + fmtSI(iv.Is) + ' A',
-      '<b>I(V=' + fmt(p.bias) + ')</b> = ' + fmtSI(p.bias >= 0 ? iv.I_fwd : iv.I_rev) + ' A',
+      texHTML('\\Phi_B') + ' = ' + fmt(bh.Phi_B) + ' eV',
+      texHTML('V_{bi}') + ' = ' + fmt(bh.Vbi) + ' V',
+      texHTML('W') + ' = ' + fmtSI(dep.W) + ' m',
+      texHTML('kT') + ' = ' + fmt(m.kT) + ' eV',
+      texHTML('I_s') + ' = ' + fmtSI(iv.Is) + ' A',
+      texHTML('I(V=' + fmt(p.bias) + ')') + ' = ' + fmtSI(p.bias >= 0 ? iv.I_fwd : iv.I_rev) + ' A',
     ].map((s) => '<span class="stat-i">' + s + '</span>').join('<span class="stat-i sep">·</span>');
 }
 
@@ -292,20 +296,46 @@ function openFermiModal(){
 fermiBtn?.addEventListener('click', openFermiModal);
 initFermiOverlay();            // overlay's own close button + Escape handling
 
+/* ============================ legend tabs ============================ */
+/* 👶 = beginner (labeled quantities) · 🤓 = nerd (formulas, after the
+   Schottky-barrier Wikipedia article). Switching panes changes the legend's
+   footprint, and that footprint is what renderBand reserves for the f(E)
+   inset — so every switch repaints the band canvas. */
+const legendPaneBasic = $('legendPaneBasic');
+const legendPaneNerd = $('legendPaneNerd');
+const legendTabBasic = $('legendTabBasic');
+const legendTabNerd = $('legendTabNerd');
+function switchLegendTab(nerd){
+  if (!legendPaneBasic || !legendPaneNerd) return;
+  const showNerd = !!nerd;
+  legendPaneBasic.hidden = showNerd;
+  legendPaneNerd.hidden = !showNerd;
+  if (legendTabBasic && legendTabNerd){
+    legendTabBasic.classList.toggle('active', !showNerd);
+    legendTabNerd.classList.toggle('active', showNerd);
+    legendTabBasic.setAttribute('aria-selected', String(!showNerd));
+    legendTabNerd.setAttribute('aria-selected', String(showNerd));
+  }
+  if (lastModel){
+    paintBand();
+    positionFermiBtn();
+    window.__SCHOTTKY_FERMI_INSET = getFermiInset();  // keep the e2e hook honest
+  }
+}
+legendTabBasic?.addEventListener('click', () => switchLegendTab(false));
+legendTabNerd?.addEventListener('click', () => switchLegendTab(true));
+
 function buildLegend() {
-  if (!legend) return;
+  const pane = legendPaneBasic || legend;
+  if (!pane) return;
   Object.entries(LABELS.arrows).forEach(([id, a]) => {
     const li = document.createElement('span');
     li.className = 'legend-item';
     li.dataset.id = id;
-    li.innerHTML = a.label;
+    li.innerHTML = a.md ? mdHTML(a.md) : a.label;
     li.addEventListener('click', () => { if (lastModel) openDetail(id, lastModel); });
-    legend.appendChild(li);
+    pane.appendChild(li);
   });
-  const tip = document.createElement('div');
-  tip.className = 'legend-tip';
-  tip.textContent = LABELS.tip;
-  legend.appendChild(tip);
 }
 buildLegend();
 initLegend();
@@ -408,5 +438,6 @@ window.addEventListener('resize', () => {
 });
 
 /* ============================ boot ============================ */
+renderMathIn(document);          // static [data-tex]/[data-md] markup (topbar chip, 🤓 pane)
 contactBtn.textContent = 'Make contact';
 update();

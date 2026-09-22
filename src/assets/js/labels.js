@@ -14,26 +14,28 @@ const LABELS = Object.freeze({
   panelPlot: 'Band alignment (energy vs. position)',
   panelGraph: 'I–V characteristic (thermionic emission)',
 
-  /* Slider definitions (mirrored in main.js) */
+  /* Slider definitions (mirrored in main.js) — `tex` is the KaTeX form rendered
+     into the <label> by main.js; `label` stays the plain-text fallback/aria text */
   sliders: [
-    { key: 'phi_m', label: 'Metal work function Φ_m', unit: 'eV', min: 3.5, max: 6.0, step: 0.01, default: 5.10 },
-    { key: 'chi_s', label: 'Electron affinity χ_s',   unit: 'eV', min: 3.6, max: 4.8, step: 0.01, default: 4.30 },
-    { key: 'Eg_s',  label: 'MoS₂ band gap E_g',       unit: 'eV', min: 0.3, max: 2.5, step: 0.01, default: 1.80 },
-    { key: 'dE_s',  label: 'Doping E_F − E_C',        unit: 'eV', min: 0.0, max: 0.8, step: 0.01, default: 0.15 },
-    { key: 'T',     label: 'Temperature T',           unit: 'K',  min: 10,  max: 800, step: 1,   default: 300 },
-    { key: 'bias',  label: 'Applied bias V',          unit: 'V',  min: -1.5, max: 1.5, step: 0.01, default: 0.00 },
+    { key: 'phi_m', label: 'Metal work function Φ_m', tex: '\\text{Metal work function }\\Phi_m', unit: 'eV', min: 3.5, max: 6.0, step: 0.01, default: 5.10 },
+    { key: 'chi_s', label: 'Electron affinity χ_s',   tex: '\\text{Electron affinity }\\chi_s',   unit: 'eV', min: 3.6, max: 4.8, step: 0.01, default: 4.30 },
+    { key: 'Eg_s',  label: 'MoS₂ band gap E_g',       tex: '\\text{MoS}_2\\text{ band gap }E_g',       unit: 'eV', min: 0.3, max: 2.5, step: 0.01, default: 1.80 },
+    { key: 'dE_s',  label: 'Doping E_F − E_C',        tex: '\\text{Doping }E_F - E_C',        unit: 'eV', min: 0.0, max: 0.8, step: 0.01, default: 0.15 },
+    { key: 'T',     label: 'Temperature T',           tex: '\\text{Temperature }T',           unit: 'K',  min: 10,  max: 800, step: 1,   default: 300 },
+    { key: 'bias',  label: 'Applied bias V',          tex: '\\text{Applied bias }V',          unit: 'V',  min: -1.5, max: 1.5, step: 0.01, default: 0.00 },
   ],
 
-  /* Arrow / legend labels */
+  /* Arrow / legend labels — `md` is the markdown+LaTeX form rendered into the
+     legend chips (math.js mdHTML); `label` stays the plain-text fallback */
   arrows: {
-    phi_m:    { label: 'Φ_m = metal work function', short: 'Φ_m' },
-    chi_s:    { label: 'χ_s = electron affinity',   short: 'χ_s' },
-    dE:       { label: 'E_F − E_C (doping)',         short: 'ΔE' },
-    barrier:  { label: 'Φ_B = Φ_m − χ_s (barrier)', short: 'Φ_B' },
-    vbi:      { label: 'Built-in potential V_bi',   short: 'V_bi' },
-    eg:       { label: 'Band gap E_g',               short: 'E_g' },
-    efsep:    { label: 'Fermi offset before contact', short: 'ΔE_F' },
-    vacuum:   { label: 'vacuum level',               short: '' },
+    phi_m:    { label: 'Φ_m = metal work function', short: 'Φ_m', md: '$\\Phi_m$ = metal work function' },
+    chi_s:    { label: 'χ_s = electron affinity',   short: 'χ_s', md: '$\\chi_s$ = electron affinity' },
+    dE:       { label: 'E_F − E_C (doping)',         short: 'ΔE',  md: '$E_F - E_C$ (doping)' },
+    barrier:  { label: 'Φ_B = Φ_m − χ_s (barrier)', short: 'Φ_B', md: '$\\Phi_B = \\Phi_m - \\chi_s$ (barrier)' },
+    vbi:      { label: 'Built-in potential V_bi',   short: 'V_bi', md: 'Built-in potential $V_{bi}$' },
+    eg:       { label: 'Band gap E_g',               short: 'E_g', md: 'Band gap $E_g$' },
+    efsep:    { label: 'Fermi offset before contact', short: 'ΔE_F', md: 'Fermi offset $\\Delta E_F$ (before contact)' },
+    vacuum:   { label: 'vacuum level',               short: '',    md: 'vacuum level $E_{vac}$' },
   },
 
   tip: "Click any numbered arrow on the band diagram for the formula and value.",

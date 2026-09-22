@@ -104,13 +104,19 @@ export function renderBand(canvas, model, animFrac, opts){
   // grid + energy tick labels
   drawEnergyGrid(ctx, g, Emin, Emax, Y);
 
-  // region x-bands
+  // region x-bands. The semiconductor slab PHYSICALLY APPROACHES the metal as
+  // the contact forms: everything right of the metal surface (depletion zone +
+  // semi bulk + the bands drawn inside it) slides in from the right by `gap`,
+  // so at animFrac=0 there is a real vacuum gap between the two surfaces and
+  // the position axis becomes meaningful during the animation.
+  const gapMax = 0.26 * g.innerW;
+  const gap = gapMax * (1 - a);                        // 0 → closed junction
   const metalX0 = g.pad.left;
   const metalX1 = g.pad.left + 0.40 * g.innerW;
-  const depX1  = metalX1 + 0.18 * g.innerW;
+  const depX1  = metalX1 + 0.18 * g.innerW + gap;      // depletion rides the slab
   const semiX0 = depX1;
-  const semiX1 = g.pad.left + g.innerW;
-  const midX   = metalX1;  // Schottky interface
+  const semiX1 = g.pad.left + g.innerW + gap;          // slab's right edge parks off-canvas
+  const midX   = metalX1;  // Schottky interface (metal surface; junction when gap = 0)
 
   // metal region fill + border
   ctx.fillStyle = C.metalFill;
@@ -119,9 +125,13 @@ export function renderBand(canvas, model, animFrac, opts){
   ctx.lineWidth = 1;
   ctx.strokeRect(metalX0 + 0.5, g.pad.top + 0.5, metalX1 - metalX0 - 1, g.innerH - 1);
 
-  // depletion shading
+  // depletion shading — fades in with contact: before the surfaces touch there
+  // is no space-charge region to shade
+  ctx.save();
+  ctx.globalAlpha = a;
   ctx.fillStyle = C.depFill;
-  ctx.fillRect(metalX1, g.pad.top, depX1 - metalX1, g.innerH);
+  ctx.fillRect(metalX1 + gap, g.pad.top, depX1 - metalX1 - gap, g.innerH);
+  ctx.globalAlpha = 1;
 
   // semi region fill + border
   ctx.fillStyle = C.semiFill;
@@ -137,13 +147,24 @@ export function renderBand(canvas, model, animFrac, opts){
   ctx.moveTo(semiX0, g.pad.top); ctx.lineTo(semiX0, g.pad.top + g.innerH); ctx.stroke();
   ctx.setLineDash([]);
 
-  // region captions
+  // region captions — the semi caption is clamped to the VISIBLE part of the
+  // slab (its right edge parks off-canvas while the gap is open)
   ctx.fillStyle = C.metalTxt;
   ctx.font = '600 11px "JetBrains Mono", monospace';
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
   ctx.fillText('Au (metal)', (metalX0 + metalX1) / 2, g.pad.top + 4);
   ctx.fillStyle = C.semiTxt;
-  ctx.fillText('2H-MoS\u2082 (n-type)', (semiX0 + semiX1) / 2, g.pad.top + 4);
+  const semiVisR = Math.min(semiX1, g.pad.left + g.innerW - 4);
+  if (semiVisR > semiX0 + 30){
+    ctx.fillText('2H-MoS\u2082 (n-type)', (semiX0 + semiVisR) / 2, g.pad.top + 4);
+  }
+  // vacuum gap label — only while there is room to read it
+  if (gap > 56){
+    ctx.fillStyle = 'rgba(138,151,196,0.55)';
+    ctx.font = '10px "JetBrains Mono", monospace';
+    ctx.fillText('vacuum gap', (metalX1 + (metalX1 + gap)) / 2, g.pad.top + g.innerH / 2 - 6);
+    ctx.fillText('\u2190 approaching', (metalX1 + (metalX1 + gap)) / 2, g.pad.top + g.innerH / 2 + 8);
+  }
 
   // band bending: interface pinned at −χ_s; bulk animated between the flat
   // pre-contact level and the equilibrium level (depletion: down / accumulation: up)
@@ -154,12 +175,13 @@ export function renderBand(canvas, model, animFrac, opts){
   function bentEc(t){ return lvl.Ec_s + (EcBulk - lvl.Ec_s) * bendDrop(t); }
   function bentEv(t){ return bentEc(t) - p.Eg_s; }
 
-  // draw CB (starts at the Schottky interface, t = 0.40)
+  // draw CB (starts at the Schottky interface, t = 0.40; rides the sliding slab)
+  const xSemi = (t) => g.pad.left + t * g.innerW + gap;
   ctx.lineWidth = 2; ctx.lineJoin = 'round';
   ctx.beginPath(); ctx.strokeStyle = C.cb;
   for (let i = 0; i <= 360; i++){
     const t = 0.40 + (i / 360) * 0.60;
-    const x = g.pad.left + t * g.innerW;
+    const x = xSemi(t);
     const y = Y(bentEc(t));
     if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
   }
@@ -169,7 +191,7 @@ export function renderBand(canvas, model, animFrac, opts){
   ctx.beginPath(); ctx.strokeStyle = C.vb;
   for (let i = 0; i <= 360; i++){
     const t = 0.40 + (i / 360) * 0.60;
-    const x = g.pad.left + t * g.innerW;
+    const x = xSemi(t);
     const y = Y(bentEv(t));
     if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
   }
@@ -180,12 +202,12 @@ export function renderBand(canvas, model, animFrac, opts){
   ctx.beginPath();
   for (let i = 0; i <= 360; i++){
     const t = 0.40 + (i / 360) * 0.60;
-    const x = g.pad.left + t * g.innerW;
+    const x = xSemi(t);
     if (i === 0) ctx.moveTo(x, Y(bentEc(t))); else ctx.lineTo(x, Y(bentEc(t)));
   }
   for (let i = 360; i >= 0; i--){
     const t = 0.40 + (i / 360) * 0.60;
-    const x = g.pad.left + t * g.innerW;
+    const x = xSemi(t);
     ctx.lineTo(x, Y(bentEv(t)));
   }
   ctx.closePath();
@@ -213,14 +235,14 @@ export function renderBand(canvas, model, animFrac, opts){
     ctx.fillText('E_F (common) = ' + fmt(lvl.Ef_m) + ' eV', semiX0 + 5, yFs - 2);
   }
 
-  // vacuum level (dashed; flat over metal, tilts DOWN across the depletion zone
-  // to the lowered bulk, mirroring the band bending — electrostatic potential drop)
+  // vacuum level (dashed; flat over the metal AND the vacuum gap, tilts DOWN
+  // across the depletion zone to the lowered bulk — electrostatic potential drop)
   ctx.strokeStyle = C.vacuum; ctx.lineWidth = 1;
   ctx.setLineDash([2, 4]);
-  ctx.beginPath(); ctx.moveTo(metalX0, Y(0)); ctx.lineTo(metalX1, Y(0));
+  ctx.beginPath(); ctx.moveTo(metalX0, Y(0)); ctx.lineTo(metalX1 + gap, Y(0));
   for (let i = 0; i <= 60; i++){
     const t = tDep0 + (i / 60) * (tDep1 - tDep0);
-    const x = g.pad.left + t * g.innerW;
+    const x = g.pad.left + t * g.innerW + gap;
     ctx.lineTo(x, Y(vacBulk * bendDrop(t)));
   }
   ctx.lineTo(semiX1, Y(vacBulk)); ctx.stroke();
@@ -318,12 +340,15 @@ export function renderBand(canvas, model, animFrac, opts){
     _fermiInset = { x: ix, y: iy0, w: iw, h: ih };
   }
 
-  // depletion hatching
+  // depletion hatching (rides the sliding slab; fades in with contact)
+  ctx.save();
+  ctx.globalAlpha = a;
   ctx.strokeStyle = 'rgba(90,170,255,0.20)'; ctx.lineWidth = 1;
   for (let i = 0; i < 12; i++){
-    const x = metalX1 + (i + 0.5) * (depX1 - metalX1) / 12;
+    const x = (metalX1 + gap) + (i + 0.5) * (depX1 - metalX1 - gap) / 12;
     ctx.beginPath(); ctx.moveTo(x, g.pad.top); ctx.lineTo(x, g.pad.top + g.innerH); ctx.stroke();
   }
+  ctx.restore();
 
   // interface marker
   ctx.strokeStyle = 'rgba(255,107,107,0.45)'; ctx.lineWidth = 1;
@@ -355,7 +380,7 @@ export function renderBand(canvas, model, animFrac, opts){
   // NUMBERED ARROWS (clickable)
   _targets.length = 0;
   drawNumberedArrows(ctx, g, Y, lvl, bh, p, midX, metalX1, semiX0, semiX1, yFm, yFs, {
-    Ef_semi, EcBulk, a,
+    Ef_semi, EcBulk, a, gapFrac: gap / g.innerW,
   });
 }
 let _targets = [];
@@ -638,7 +663,11 @@ function drawNumberedArrows(ctx, g, Y, lvl, bh, p, midX, metalX1, semiX0, semiX1
   let n = 0;
   for (const ar of ARROWS){
     n++;
-    let x0 = Xf(ar.x0), x1 = Xf(ar.x1);
+    // slab-anchored arrows (the interface and everything right of it) ride the
+    // approach animation with the semiconductor; the ΔE_F arrow slides into the
+    // widening vacuum gap, where that offset physically lives while separated
+    const sh = (extra && extra.gapFrac && ar.x0 >= 0.28) ? extra.gapFrac * iw : 0;
+    let x0 = Xf(ar.x0) + sh, x1 = Xf(ar.x1) + sh;
     let y0 = Y(Emap[ar.e0]), y1 = Y(Emap[ar.e1]);
     // barrier arrow: point its head at the UPPER of the two levels (higher energy)
     if (ar.id === 'barrier' && y1 > y0){ [y0, y1] = [y1, y0]; }

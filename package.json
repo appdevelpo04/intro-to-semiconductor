@@ -16,7 +16,9 @@
     "check": "bun run check:physics && bun run check:render && bun run check:layout && bun run check:contact && bun x astro build"
   },
   "dependencies": {
-    "astro": "^7.3.2"
+    "astro": "^7.3.2",
+    "katex": "^0.18.7",
+    "marked": "^18.0.13"
   },
   "devDependencies": {
     "@napi-rs/canvas": "^1.0.9",

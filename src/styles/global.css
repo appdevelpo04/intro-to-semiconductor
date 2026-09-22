@@ -362,8 +362,8 @@ canvas {
 /* ---------- Legend ---------- */
 .legend {
   position: absolute; bottom: 10px; left: 16px;
-  display: flex; flex-wrap: wrap; gap: 10px;
-  background: rgba(7,11,23,0.78); padding: 8px 12px;
+  display: flex; flex-wrap: wrap; gap: 8px 10px;
+  background: rgba(7,11,23,0.78); padding: 5px 12px;
   border-radius: 8px; border: 1px solid var(--line);
   backdrop-filter: blur(4px); font-size: 12px;
   pointer-events: auto; z-index: 5;
@@ -446,6 +446,87 @@ canvas {
   box-shadow: 0 0 0 2px rgba(0,229,176,0.5);
 }
 .legend-restore-icon { font-size: 11px; line-height: 1; color: var(--accent); }
+
+/* ---------- legend tabs (👶 beginner / 🤓 nerd) ---------- */
+.legend-tabs {
+  display: inline-flex; gap: 4px;
+  padding-right: 6px;
+  border-right: 1px solid var(--line);
+}
+.legend-tab {
+  border: 1px solid var(--line);
+  background: rgba(14,21,41,0.6);
+  border-radius: 6px;
+  font-size: 13px; line-height: 1;
+  padding: 4px 8px;
+  cursor: pointer;
+  opacity: 0.65;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+.legend-tab:hover { opacity: 1; background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.2); }
+.legend-tab.active {
+  opacity: 1;
+  border-color: rgba(0,229,176,0.5);
+  background: rgba(0,229,176,0.12);
+}
+.legend-tab:focus-visible { outline: none; box-shadow: 0 0 0 2px rgba(0,229,176,0.5); }
+.legend-pane {
+  display: flex; flex-wrap: wrap; gap: 10px;
+  align-items: center;
+  flex: 1 1 auto; min-width: 0;
+}
+.legend-pane[hidden] { display: none; }
+.legend-item {
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 1px 2px;
+  transition: color 0.12s ease, background 0.12s ease;
+}
+.legend-item:hover { color: var(--text); background: rgba(0,229,176,0.08); }
+.legend-tip {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: rgba(138,151,196,0.65);
+  font-size: 11px;
+  font-style: italic;
+}
+/* shared footer row: tabs + tip live on ONE line so switching panes never
+   grows the legend taller than the pre-tabs layout (it overlays the canvas) */
+.legend-foot {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+/* 🤓 pane: formula + one-line explanation per row */
+.legend-pane-nerd {
+  display: flex; flex-direction: column; gap: 6px;
+  flex: 1 1 100%;
+  max-width: 640px;
+  padding: 2px 0;
+}
+.nerd-row {
+  display: grid;
+  grid-template-columns: minmax(200px, auto) 1fr;
+  gap: 4px 14px;
+  align-items: baseline;
+}
+.nerd-row code {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--accent);
+  white-space: nowrap;
+}
+.nerd-row code sup { font-size: 9px; }
+.nerd-row span { color: var(--muted); font-size: 11.5px; line-height: 1.45; }
+.nerd-row.nerd-note {
+  grid-template-columns: 1fr;
+  border-top: 1px dashed var(--line);
+  padding-top: 6px;
+  color: var(--muted); font-size: 11.5px; line-height: 1.5;
+}
 
 /* ---------- responsive ---------- */
 @media (max-width: 860px) {

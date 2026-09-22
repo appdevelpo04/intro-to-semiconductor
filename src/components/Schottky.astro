@@ -10,7 +10,7 @@
       <p class="sub">2H semiconducting phase · ideal n-type contact</p>
     </div>
     <div class="formula">
-      Φ<sub>B</sub> = Φ<sub>m</sub> − χ<sub>s</sub>
+      <span data-tex="\Phi_B = \Phi_m - \chi_s"></span>
       <small>&nbsp; (n-type, ideal)</small>
     </div>
   </header>
@@ -35,7 +35,7 @@
               <path d="M21 21l-4.3-4.3"/>
               <path d="M11 8v6M8 11h6"/>
             </svg>
-            <span>Magnify f(E)</span>
+            <div>Magnify <span data-tex="f(E)"></span></div>
             <span class="fermi-btn-key">⤢</span>
           </button>
         </div>
@@ -46,19 +46,37 @@
         </div>
         <div class="legend" id="legendItems">
           <button class="legend-close" id="legendClose" type="button" aria-label="Dismiss legend">×</button>
-          <span class="legend-item" data-id="phi_m">Φ_m = metal work function</span>
-          <span class="legend-item" data-id="chi_s">χ_s = electron affinity</span>
-          <span class="legend-item" data-id="dE">E_F − E_C (doping)</span>
-          <span class="legend-item" data-id="barrier">Φ_B = Φ_m − χ_s (barrier)</span>
-          <span class="legend-item" data-id="vbi">Built-in potential V_bi</span>
-          <span class="legend-item" data-id="eg">Band gap E_g</span>
-          <span class="legend-item" data-id="efsep">Fermi offset before contact</span>
-          <span class="legend-item" data-id="vacuum">vacuum level</span>
-          <div class="legend-tip">Click any numbered arrow on the band diagram for the formula and value.</div>
+          <div class="legend-pane" id="legendPaneBasic" role="tabpanel" aria-label="Beginner legend">
+            <!-- items injected by main.js buildLegend() — injecting keeps the
+                 click→detail wiring on every item (static copies had none) -->
+          </div>
+          <div class="legend-pane legend-pane-nerd" id="legendPaneNerd" role="tabpanel"
+               aria-label="Formulas" hidden>
+            <div class="nerd-row"><code data-tex="\Phi_B = \Phi_m - \chi_s"></code><span data-md="Schottky–Mott rule: n-type barrier height. Ohmic when $\Phi_B \le 0$."></span></div>
+            <div class="nerd-row"><code data-tex="I = A\,A^{*}T^{2}\,e^{-\Phi_B/kT}\left(e^{qV/kT} - 1\right)"></code><span data-md="Thermionic-emission diode law; $A^{*}$ = Richardson constant."></span></div>
+            <div class="nerd-row"><code data-tex="I_s = A\,A^{*}T^{2}\,e^{-q\Phi_B/kT}"></code><span data-md="Reverse saturation current — doubling $T$ or shrinking $\Phi_B$ blows it up."></span></div>
+            <div class="nerd-row"><code data-tex="V_{bi} = \Phi_B - (E_C - E_F)/q"></code><span data-md="Built-in potential: barrier minus the doping offset in the bulk."></span></div>
+            <div class="nerd-row"><code data-tex="W = \sqrt{2\varepsilon_s V_{bi} / (q\,N_D)}"></code><span data-md="Depletion width — doping-dependent space-charge region."></span></div>
+            <div class="nerd-row"><code data-tex="E_g = E_C - E_V"></code><span data-md="Band gap; $f(E) = 1/(1 + e^{(E - E_F)/kT})$ fills states thermally."></span></div>
+            <div class="nerd-row nerd-note" data-md="Real contacts deviate from Schottky–Mott: interface states pin $E_F$ (Bardeen limit), and the image force lowers the barrier by $\Delta\Phi = \sqrt{qE/(4\pi\varepsilon_s)}$."></div>
+          </div>
+          <!-- tabs share the tip's row so the legend never grows taller than the
+               pre-tabs layout (it overlays the band diagram — every px counts) -->
+          <div class="legend-foot">
+            <div class="legend-tabs" role="tablist" aria-label="Legend detail level">
+              <button class="legend-tab active" id="legendTabBasic" type="button" role="tab"
+                      aria-selected="true" aria-controls="legendPaneBasic"
+                      title="Beginner — labeled quantities">👶</button>
+              <button class="legend-tab" id="legendTabNerd" type="button" role="tab"
+                      aria-selected="false" aria-controls="legendPaneNerd"
+                      title="Nerd — formulas & physics (Schottky barrier)">🤓</button>
+            </div>
+            <div class="legend-tip">Click any numbered arrow on the band diagram for the formula and value.</div>
+          </div>
         </div>
-         <button class="legend-restore" id="legendRestore" type="button" aria-label="Show legend" hidden>
-           <span class="legend-restore-icon">⌃</span> Show legend
-         </button>
+        <button class="legend-restore" id="legendRestore" type="button" aria-label="Show legend" hidden>
+          <span class="legend-restore-icon">⌃</span> Show legend
+        </button>
       </div>
     </section>
 

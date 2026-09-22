@@ -8,6 +8,7 @@
 
 import { BANDMODEL } from './bandmodel.js';
 import { fmt, fmtSI } from './labels.js';
+import { texHTML } from './math.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -16,6 +17,7 @@ let fermiCanvas = null;
 let fermiOverlay = null;
 let fermiBtn = null;
 let fermiClose = null;
+let fermiFormula = null;
 let fermiModel = null;
 
 /* ---------- open / close ---------- */
@@ -261,14 +263,37 @@ function renderFermiCanvas() {
 
   ctx.setTransform(1, 0, 0, 1, 0, 0);
 
-  /* ---------- info cards ---------- */
-  const set = (id, v) => { const el = $(id); if (el) el.textContent = v; };
-  set('fermiEf', `${fmt(Ef)} eV`);
-  set('fermiKt', `${fmt(kT)} eV`);
-  set('fermiEc', `${fmt(Ec)} eV`);
-  set('fermiEv', `${fmt(Ev)} eV`);
-  set('fermiEcOffset', `${fmt(Ec - Ef)} eV`);
+  /* ---------- info cards: LaTeX label + value rows (DOM text only, so cached
+     KaTeX spans cost nothing per repaint — no layout work beyond text swap) */
+  const fermiCardDefs = {
+    fermiEf: '\\mathrm{Fermi\\ level}\\ E_F',
+    fermiKt: '\\mathrm{Thermal\\ energy}\\ kT',
+    fermiEc: '\\mathrm{Conduction\\ edge}\\ E_C',
+    fermiEv: '\\mathrm{Valence\\ edge}\\ E_V',
+    fermiEcOffset: 'E_C - E_F\\ \\mathrm{separation}',
+    fermiOccEc: 'f(E_C)\\ \\mathrm{occupancy}',
+  };
+  const fermiCardEls = new Map();
+  const set = (id, valTex) => {
+    let slot = fermiCardEls.get(id);
+    if (!slot){
+      const el = $(id);
+      if (!el) return;
+      el.innerHTML = '<span class="fermi-info-tex"></span><span class="fermi-info-val"></span>';
+      slot = { texEl: el.querySelector('.fermi-info-tex'), valEl: el.querySelector('.fermi-info-val') };
+      fermiCardEls.set(id, slot);
+    }
+    slot.texEl.innerHTML = texHTML(fermiCardDefs[id]);
+    slot.valEl.innerHTML = texHTML(valTex);
+  };
+  set('fermiEf', `${fmt(Ef)}\\ \\mathrm{eV}`);
+  set('fermiKt', `${fmt(kT)}\\ \\mathrm{eV}`);
+  set('fermiEc', `${fmt(Ec)}\\ \\mathrm{eV}`);
+  set('fermiEv', `${fmt(Ev)}\\ \\mathrm{eV}`);
+  set('fermiEcOffset', `${fmt(Ec - Ef)}\\ \\mathrm{eV}`);
   set('fermiOccEc', BANDMODEL.fermiDirac(Ec, Ef, p.T).toExponential(2));
+  const ff = $('fermiFormula');
+  if (ff && !ff.dataset.texDone){ ff.innerHTML = texHTML(ff.dataset.tex, true); ff.dataset.texDone = '1'; }
 }
 
 /* ---------- inject overlay HTML ---------- */
@@ -315,12 +340,12 @@ export function initFermiOverlay() {
             <div class="fermi-info-value" id="fermiOccEc">—</div>
           </div>
         </div>
-        <div class="fermi-formula">
+        <div class="fermi-formula" id="fermiFormula">
           f(E) = 1 / (1 + exp((E − E_F) / kT))
         </div>
       </div>
       <div class="fermi-modal-footer">
-        Click outside or press Esc to close
+        Drag the T slider — the curve follows live · Click outside or press Esc to close
       </div>
     </div>
   `;
@@ -328,6 +353,8 @@ export function initFermiOverlay() {
 
   fermiCanvas = $('fermiCanvas');
   fermiClose = $('fermiModalClose') || fermiOverlay.querySelector('.fermi-modal-close');
+  fermiFormula = $('fermiFormula');
+  if (fermiFormula) fermiFormula.innerHTML = texHTML('f(E) = 1 / (1 + e^{(E - E_F)/kT})');
 
   // event listeners
   fermiOverlay.addEventListener('click', (e) => {
@@ -352,6 +379,12 @@ export function initFermiOverlay() {
 }
 
 /* ---------- update model reference when params change ---------- */
+/* Called from update() on every slider move. While the modal is open the plot
+   re-renders immediately, so dragging the T slider visibly sharpens/flattens
+   the sigmoid (kT spreads the transition over ~±4kT around E_F) — the whole
+   point of the modal is to make that thermal smearing tangible. */
 export function updateFermiModel(model) {
+  const live = fermiOverlay != null && fermiOverlay.classList.contains('active');
   fermiModel = model;
+  if (live) renderFermiCanvas();
 }

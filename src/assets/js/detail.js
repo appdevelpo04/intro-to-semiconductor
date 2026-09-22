@@ -5,6 +5,7 @@
  */
 
 import { BANDMODEL } from './bandmodel.js';
+import { mdHTML, texHTML } from './math.js';
 
 const DOM = {
   panel: document.getElementById('detailPanel'),
@@ -68,91 +69,58 @@ function e(v) {
 function detailText(id, m) {
   const p = m.params, bh = m.barrier, lvl = m.levels, iv = m.IV, kT = m.kT;
 
+  /* Sections are MARKDOWN with inline LaTeX ($…$ → KaTeX via math.js).
+     The live numeric value leads each card inside .d-val. */
+  const v = (s) => '<span class="d-val">' + s + '</span>';
+
   switch (id) {
-    case 'phi_m': return [
-      `Φ<sub>m</sub> = <b>${e(p.phi_m)} eV</b>`,
-      `χ<sub>s</sub> = ${e(p.chi_s)} eV`,
-      `Φ<sub>B</sub> = Φ<sub>m</sub> − χ<sub>s</sub> = ${e(bh.Phi_B)} eV`,
-      '',
-      'Raising Φ_m increases the barrier for electrons entering the',
-      'semiconductor. When Φ_m < χ_s the contact becomes ideal-ohmic.',
-    ].join('\n');
+    case 'phi_m': return v(texHTML('\\Phi_m = ' + e(p.phi_m) + '\\,\\mathrm{eV}')) + mdHTML(
+      '$\\Phi_m$ — **metal work function**: energy to lift an electron from the metal Fermi level to vacuum.\n\n' +
+      '$\\chi_s = ' + e(p.chi_s) + '\\,\\mathrm{eV}$ · $\\Phi_B = \\Phi_m - \\chi_s = ' + e(bh.Phi_B) + '\\,\\mathrm{eV}$\n\n' +
+      'Raising $\\Phi_m$ increases the barrier for electrons entering the semiconductor. When $\\Phi_m < \\chi_s$ the contact becomes ideal-ohmic.'
+    );
 
-    case 'chi_s': return [
-      `χ<sub>s</sub> = <b>${e(p.chi_s)} eV</b>`,
-      `Φ<sub>m</sub> = ${e(p.phi_m)} eV`,
-      `Φ<sub>B</sub> = ${e(bh.Phi_B)} eV`,
-      '',
-      'Electron affinity: energy from the semiconductor CB edge to vacuum.',
-      'MoS₂ is typically quoted around 4.0–4.4 eV.',
-    ].join('\n');
+    case 'chi_s': return v(texHTML('\\chi_s = ' + e(p.chi_s) + '\\,\\mathrm{eV}')) + mdHTML(
+      '$\\chi_s$ — **electron affinity**: energy from the conduction-band edge $E_C$ to vacuum.\n\n' +
+      '$\\Phi_m = ' + e(p.phi_m) + '\\,\\mathrm{eV}$ · $\\Phi_B = ' + e(bh.Phi_B) + '\\,\\mathrm{eV}$\n\n' +
+      'MoS₂ is typically quoted around $4.0\\text{–}4.3\\,\\mathrm{eV}$.'
+    );
 
-    case 'dE': return [
-      `ΔE = E<sub>F</sub> − E<sub>C</sub> = <b>${e(p.dE_s)} eV</b>`,
-      `E<sub>C</sub> = −χ<sub>s</sub> = ${e(lvl.Ec_s)} eV`,
-      `E<sub>F</sub> (semi) = ${e(lvl.Ef_s)} eV`,
-      '',
-      'ΔE encodes the n-type doping. It changes V_bi and the depletion',
-      'width but does NOT change the ideal barrier height Φ_B.',
-    ].join('\n');
+    case 'dE': return v(texHTML('\\Delta E = ' + e(p.dE_s) + '\\,\\mathrm{eV}')) + mdHTML(
+      '$\\Delta E = E_F - E_C$ — **doping offset** of the n-type semiconductor.\n\n' +
+      '$E_C = -\\chi_s = ' + e(lvl.Ec_s) + '\\,\\mathrm{eV}$ · $E_F^{\\mathrm{semi}} = ' + e(lvl.Ef_s) + '\\,\\mathrm{eV}$\n\n' +
+      '$\\Delta E$ encodes the doping: it changes $V_{bi}$ and the depletion width $W$, but **not** the ideal barrier height $\\Phi_B$.'
+    );
 
-    case 'eg': return [
-      `E<sub>g</sub> = <b>${e(p.Eg_s)} eV</b>`,
-      `E<sub>C</sub> = ${e(lvl.Ec_s)} eV`,
-      `E<sub>V</sub> = ${e(lvl.Ev_s)} eV`,
-      '',
-      '2H-MoS₂ monolayer: E_g ≈ 1.8–1.9 eV (direct).',
-      'Bulk/thin-flake 2H: E_g ≈ 1.2–1.3 eV (indirect).',
-    ].join('\n');
+    case 'eg': return v(texHTML('E_g = ' + e(p.Eg_s) + '\\,\\mathrm{eV}')) + mdHTML(
+      '$E_g = E_C - E_V$ — **band gap** of the semiconductor.\n\n' +
+      '$E_C = ' + e(lvl.Ec_s) + '\\,\\mathrm{eV}$ · $E_V = ' + e(lvl.Ev_s) + '\\,\\mathrm{eV}$\n\n' +
+      '2H-MoS₂ monolayer: $E_g \\approx 1.8\\text{–}1.9\\,\\mathrm{eV}$ (direct). Bulk/thin-flake 2H: $E_g \\approx 1.2\\text{–}1.3\\,\\mathrm{eV}$ (indirect).'
+    );
 
-    case 'vbi': return [
-      `V<sub>bi</sub> ≈ <b>${e(bh.Vbi)} V</b>`,
-      `V<sub>bi</sub> = (Φ_m − χ_s − ΔE) / e`,
-      `   = (${e(p.phi_m)} − ${e(p.chi_s)} − ${e(p.dE_s)}) / e`,
-      '',
-      'Built-in potential: electrostatic potential drop across the',
-      'depleted semiconductor at equilibrium.',
-    ].join('\n');
+    case 'vbi': return v(texHTML('V_{bi} \\approx ' + e(bh.Vbi) + '\\,\\mathrm{V}')) + mdHTML(
+      '$V_{bi} = \\Phi_B - \\Delta E$ — **built-in potential** dropped across the depleted semiconductor at equilibrium.\n\n' +
+      '$= (' + e(p.phi_m) + ' - ' + e(p.chi_s) + ' - ' + e(p.dE_s) + ')\\,\\mathrm{eV}/q$\n\n' +
+      'Bands bend by exactly $qV_{bi}$ from interface to bulk.'
+    );
 
-    case 'barrier': return [
-      `Φ<sub>B</sub> = <b>${e(bh.Phi_B)} eV</b>`,
-      `Φ<sub>B</sub> = Φ_m − χ_s = ${e(p.phi_m)} − ${e(p.chi_s)}`,
-      '',
-      `Contact type: <b>${bh.contactType}</b>`,
-      '',
-      'For an ideal n-type Schottky contact the barrier height is set by',
-      'Φ_m − χ_s, independent of doping.',
-    ].join('\n');
+    case 'barrier': return v(texHTML('\\Phi_B = ' + e(bh.Phi_B) + '\\,\\mathrm{eV}')) + mdHTML(
+      '**Schottky–Mott rule** (ideal n-type): $\\Phi_B = \\Phi_m - \\chi_s = ' + e(p.phi_m) + ' - ' + e(p.chi_s) + '$\n\n' +
+      `Contact type: **${bh.contactType}**\n\n` +
+      'For an ideal n-type contact $\\Phi_B$ is set by the materials alone — independent of doping.'
+    );
 
-    case 'efsep': return [
-      `ΔE<sub>F</sub> (before contact) = <b>${e(Math.abs(lvl.Ef_m - lvl.Ef_s))} eV</b>`,
-      '',
-      'Before contact the metal and semiconductor Fermi levels are',
-      'misaligned. On contact they equilibrate to one common E_F;',
-      'electrons flow until E_F is flat across the junction — that flow',
-      'produces the band bending you see at the interface.',
-    ].join('\n');
+    case 'efsep': return v(texHTML('\\Delta E_F = ' + e(Math.abs(lvl.Ef_m - lvl.Ef_s)) + '\\,\\mathrm{eV}')) + mdHTML(
+      '$\\Delta E_F$ — **Fermi-level offset** *before* contact: $|E_F^{\\mathrm{metal}} - E_F^{\\mathrm{semi}}|$.\n\n' +
+      '$E_F^{\\mathrm{metal}} = ' + e(lvl.Ef_m) + '\\,\\mathrm{eV}$ · $E_F^{\\mathrm{semi}} = ' + e(lvl.Ef_s) + '\\,\\mathrm{eV}$\n\n' +
+      'Contact equalizes them: electrons flow until one common $E_F$ exists — that flow *is* the built-in field.'
+    );
 
-    case 'bias': return [
-      `Applied bias V = <b>${e(p.bias)} V</b>`,
-      `I<sub>s</sub> ≈ ${e(iv.Is)} A  (reverse saturation)`,
-      `kT = ${e(kT)} eV`,
-      '',
-      'Forward bias (V > 0, metal positive) lowers the effective barrier',
-      'for thermionic emission:  I ≈ I_s · exp(V / kT).',
-      'Reverse bias widens the depletion region and current saturates',
-      'near I_s in this ideal model.',
-    ].join('\n');
+    case 'vacuum': return mdHTML(
+      '**Vacuum level** $E_{vac} = 0\\,\\mathrm{eV}$ — the reference for every energy here.\n\n' +
+      'Before contact both materials share one vacuum level but have different $E_F$. After contact the vacuum levels stay aligned outside the junction while the bands bend to bring $E_F$ into equilibrium.'
+    );
 
-    case 'vacuum': return [
-      'Vacuum level E<sub>vac</sub> = 0 eV (reference).',
-      '',
-      'All energies are drawn relative to a common vacuum level. Before',
-      'contact the two materials share one vacuum level but have different',
-      'Fermi levels. After contact the vacuum levels stay aligned while',
-      'the bands bend to bring E_F into equilibrium.',
-    ].join('\n');
-
-    default: return 'No detail available for this element.';
+    default: return '<p>No detail available for this element.</p>';
   }
 }
