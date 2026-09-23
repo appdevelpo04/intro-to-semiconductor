@@ -31,8 +31,13 @@ function fitCanvas(cv){
   if (cv.width !== Math.round(w*dpr) || cv.height !== Math.round(h*dpr)){
     cv.width = Math.round(w*dpr);
     cv.height = Math.round(h*dpr);
-    cv.style.width = w+'px';
-    cv.style.height = h+'px';
+    /* Deliberately NO cv.style.width/height here. The canvas is absolutely
+       positioned with inset:0 + width/height:100% (.canvas-wrap canvas in
+       global.css), so display size must track the wrap at all times. An inline
+       px size is only refreshed when the backing store changes — after a
+       late layout shift (KaTeX/webfont metrics) it went stale and the canvas
+       bottom poked past .controls (layout-audit graph-overlaps-controls,
+       Δ=1.7px). Backing store only; CSS owns the display box. */
   }
   return { ctx: cv.getContext('2d'), w, h };
 }

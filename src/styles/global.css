@@ -181,7 +181,11 @@ body {
   min-height: 0;
   min-width: 0;
 }
-canvas {
+/* Scoped to .canvas-wrap on purpose. A bare `canvas` selector also matched the
+   Fermi–Dirac modal's canvas, which lives in a NORMAL-FLOW wrapper: absolutely
+   positioning it collapsed .fermi-canvas-wrap to its 26px of padding and the
+   plot painted straight over the info cards and formula below it. */
+.canvas-wrap canvas {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -363,7 +367,11 @@ canvas {
 .legend {
   position: absolute; bottom: 10px; left: 16px;
   display: flex; flex-wrap: wrap; gap: 8px 10px;
-  background: rgba(7,11,23,0.78); padding: 5px 12px;
+  background: rgba(7,11,23,0.78);
+  /* 44px right gutter reserves the corner the absolutely-positioned × lives in:
+     KaTeX chips are wider than the old plain-text ones and used to run right
+     underneath the close button, which then looked like clipped text. */
+  padding: 5px 44px 5px 12px;
   border-radius: 8px; border: 1px solid var(--line);
   backdrop-filter: blur(4px); font-size: 12px;
   pointer-events: auto; z-index: 5;
@@ -527,6 +535,24 @@ canvas {
   padding-top: 6px;
   color: var(--muted); font-size: 11.5px; line-height: 1.5;
 }
+
+/* ---------- KaTeX integration ----------
+   KaTeX typesets at 1.21em of whatever container it lands in, which inflated
+   the info cards, legend chips and formula past the boxes they were designed
+   for (a 12px chip became 14.5px, a 13px formula line 15.7px). Everything that
+   hosts math therefore pins it back to the container's own size. */
+.fermi-info-label .katex,
+.fermi-info-value .katex,
+.legend-item .katex { font-size: 1em; }
+
+/* marked wraps each legend chip in a <p>: inline it so the chip stays a
+   one-line flex item — a block <p> with its 1em margins doubled the legend
+   height and left the chips unable to share a row. */
+.legend-item p { display: inline; margin: 0; }
+
+/* Display-mode math ships 1em block margins; the formula box already has
+   padding, so they only made the modal taller. */
+.fermi-formula .katex-display { margin: 0; }
 
 /* ---------- responsive ---------- */
 @media (max-width: 860px) {
@@ -733,12 +759,14 @@ canvas {
   border-radius: 6px;
   padding: 10px 12px;
 }
+/* Typeset by KaTeX now (real subscripts: $E_F$, not "E_F"), so the uppercase
+   treatment is gone — text-transform would rewrite the letters inside the
+   TeX spans and the 11px box has to fit a whole math expression. */
 .fermi-info-label {
   color: var(--muted);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 4px;
+  font-size: 11.5px;
+  line-height: 1.35;
+  margin-bottom: 3px;
 }
 .fermi-info-value {
   color: var(--text);

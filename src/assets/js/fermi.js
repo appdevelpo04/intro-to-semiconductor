@@ -17,8 +17,23 @@ let fermiCanvas = null;
 let fermiOverlay = null;
 let fermiBtn = null;
 let fermiClose = null;
-let fermiFormula = null;
 let fermiModel = null;
+
+/* ---------- typeset copy ----------
+   NOTE: every backslash below is DOUBLED on purpose — these are JS string
+   literals, so a single `\t` would collapse to a TAB and KaTeX would be handed
+   `ext{Fermi level}` (which is exactly how the card labels used to render). */
+const CARD_TEX = {
+  fermiEf: '\\text{Fermi level }E_F',
+  fermiKt: '\\text{Thermal energy }kT',
+  fermiEc: '\\text{Conduction edge }E_C',
+  fermiEv: '\\text{Valence edge }E_V',
+  fermiEcOffset: 'E_C - E_F\\ \\text{separation}',
+  fermiOccEc: 'f(E_C)\\ \\text{occupancy}',
+};
+/* Display mode: the stacked \dfrac reads as an equation instead of a run of
+   slashes and brackets — the whole point of the hero modal. */
+const FORMULA_TEX = 'f(E) = \\dfrac{1}{1 + e^{(E - E_F)/kT}}';
 
 /* ---------- open / close ---------- */
 export function openFermi(model) {
@@ -263,27 +278,21 @@ function renderFermiCanvas() {
 
   ctx.setTransform(1, 0, 0, 1, 0, 0);
 
-  /* ---------- info cards: LaTeX label + value rows (DOM text only, so cached
+  /* ---------- info cards: typeset label + value (DOM text only, so cached
      KaTeX spans cost nothing per repaint — no layout work beyond text swap) */
-  const fermiCardDefs = {
-    fermiEf: '\\mathrm{Fermi\\ level}\\ E_F',
-    fermiKt: '\\mathrm{Thermal\\ energy}\\ kT',
-    fermiEc: '\\mathrm{Conduction\\ edge}\\ E_C',
-    fermiEv: '\\mathrm{Valence\\ edge}\\ E_V',
-    fermiEcOffset: 'E_C - E_F\\ \\mathrm{separation}',
-    fermiOccEc: 'f(E_C)\\ \\mathrm{occupancy}',
-  };
-  const fermiCardEls = new Map();
+  const cardSlots = new Map();
   const set = (id, valTex) => {
-    let slot = fermiCardEls.get(id);
+    let slot = cardSlots.get(id);
     if (!slot){
-      const el = $(id);
-      if (!el) return;
-      el.innerHTML = '<span class="fermi-info-tex"></span><span class="fermi-info-val"></span>';
-      slot = { texEl: el.querySelector('.fermi-info-tex'), valEl: el.querySelector('.fermi-info-val') };
-      fermiCardEls.set(id, slot);
+      const valEl = $(id);                     // the .fermi-info-value node
+      if (!valEl) return;
+      // The label stays its OWN block above the value (muted, small): writing
+      // both into the value element as two inline spans merged them onto one
+      // line and styled the label like a value.
+      slot = { labelEl: valEl.parentElement?.querySelector('.fermi-info-label'), valEl };
+      cardSlots.set(id, slot);
     }
-    slot.texEl.innerHTML = texHTML(fermiCardDefs[id]);
+    if (slot.labelEl) slot.labelEl.innerHTML = texHTML(CARD_TEX[id]);
     slot.valEl.innerHTML = texHTML(valTex);
   };
   set('fermiEf', `${fmt(Ef)}\\ \\mathrm{eV}`);
@@ -292,8 +301,9 @@ function renderFermiCanvas() {
   set('fermiEv', `${fmt(Ev)}\\ \\mathrm{eV}`);
   set('fermiEcOffset', `${fmt(Ec - Ef)}\\ \\mathrm{eV}`);
   set('fermiOccEc', BANDMODEL.fermiDirac(Ec, Ef, p.T).toExponential(2));
-  const ff = $('fermiFormula');
-  if (ff && !ff.dataset.texDone){ ff.innerHTML = texHTML(ff.dataset.tex, true); ff.dataset.texDone = '1'; }
+  /* The formula is rendered once in initFermiOverlay (display mode). It used to
+     be re-rendered here from `ff.dataset.tex` — an attribute the injected markup
+     does not have — so KaTeX threw on undefined and cut this function short. */
 }
 
 /* ---------- inject overlay HTML ---------- */
@@ -353,8 +363,8 @@ export function initFermiOverlay() {
 
   fermiCanvas = $('fermiCanvas');
   fermiClose = $('fermiModalClose') || fermiOverlay.querySelector('.fermi-modal-close');
-  fermiFormula = $('fermiFormula');
-  if (fermiFormula) fermiFormula.innerHTML = texHTML('f(E) = 1 / (1 + e^{(E - E_F)/kT})');
+  const formulaEl = $('fermiFormula');
+  if (formulaEl) formulaEl.innerHTML = texHTML(FORMULA_TEX, true);
 
   // event listeners
   fermiOverlay.addEventListener('click', (e) => {

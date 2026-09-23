@@ -21,6 +21,11 @@ const texCache = new Map();
 const CACHE_CAP = 600;             // bounded: dynamic status-bar values fill it last
 
 export function texHTML(tex, display = false) {
+  /* Refuse anything that is not TeX text. KaTeX rejects non-strings with a
+     TypeError BEFORE throwOnError can soften it, and a single stray call (an
+     element whose data-tex attribute was missing) aborted its whole caller —
+     that is how the Fermi modal lost its scroll lock and its card refresh. */
+  if (typeof tex !== 'string' || tex === '') return '';
   const key = (display ? 'D:' : 'I:') + tex;
   let html = texCache.get(key);
   if (html === undefined) {
@@ -37,6 +42,7 @@ export function texHTML(tex, display = false) {
 
 const MATH_TOKEN = '@@TEX@@';
 export function mdHTML(md) {
+  if (md == null) return '';          // undefined would parse to the text "undefined"
   const parts = [];
   // pull math out first (display $$…$$ wins over inline $…$)
   const guarded = String(md).replace(/\$\$([\s\S]+?)\$\$|\$([^$\n]+?)\$/g,
