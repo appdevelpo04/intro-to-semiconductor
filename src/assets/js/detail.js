@@ -22,6 +22,7 @@ export function open(id, model) {
   if (DOM.panel) {
     DOM.panel.style.left = '14px';
     DOM.panel.style.top = '12px';
+    DOM.panel.dataset.targetId = id;   // stable assertion hook for arrow hit tests
   }
   const m = model || (window && window.__SCHOTTKY_MODEL);
   if (!m) {

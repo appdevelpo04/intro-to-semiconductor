@@ -26,8 +26,12 @@ const C = {
 function fitCanvas(cv){
   const dpr = window.devicePixelRatio || 1;
   const r = cv.parentElement.getBoundingClientRect();
-  const w = Math.max(1, Math.floor(r.width));
-  const h = Math.max(1, Math.floor(r.height));
+  /* ROUND, not floor: floor() truncated a fractional box first, and the
+     round() below then lost another 2px at DPR 3, leaving the backing store
+     short of CSS x DPR (1170x1173 vs 1170x1175 on a 390x844 phone) — a
+     sub-pixel unpainted strip along one edge. Caught by layout-1080p.js L2. */
+  const w = Math.max(1, Math.round(r.width));
+  const h = Math.max(1, Math.round(r.height));
   if (cv.width !== Math.round(w*dpr) || cv.height !== Math.round(h*dpr)){
     cv.width = Math.round(w*dpr);
     cv.height = Math.round(h*dpr);
@@ -39,7 +43,14 @@ function fitCanvas(cv){
        bottom poked past .controls (layout-audit graph-overlaps-controls,
        Δ=1.7px). Backing store only; CSS owns the display box. */
   }
-  return { ctx: cv.getContext('2d'), w, h };
+  const ctx = cv.getContext('2d');
+  /* Render in CSS pixels. The backing store is DPR-sized, so without this
+     transform Retina/phone canvases draw only in the upper-left 1/DPR box.
+     Use the actual store/CSS ratios (rather than `dpr`) to cover fractional
+     browser sizes edge-to-edge as well. Exported hit targets remain CSS-pixel
+     coordinates, matching pointer/offsetX coordinates. */
+  ctx.setTransform(cv.width / w, 0, 0, cv.height / h, 0, 0);
+  return { ctx, w, h };
 }
 
 /* ---------- energy→y and position→x helpers ---------- */
@@ -50,11 +61,14 @@ function makeMappers(g, Emin, Emax){
 }
 
 function geom(w, h){
+  const pad = { left: 74, right: 24, top: 24, bottom: 32 };
   return {
-    W: w, H: h,
-    pad: { left: 74, right: 24, top: 24, bottom: 32 },
-    innerW: w - 54 - 24,
-    innerH: h - 24 - 32,
+    W: w, H: h, pad,
+    /* Derive both inner axes from the same pad object. The old literal used
+       54px here while the actual left pad was 74px, making every plot 20px
+       too wide and pushing right-edge arrows off narrow canvases. */
+    innerW: Math.max(1, w - pad.left - pad.right),
+    innerH: Math.max(1, h - pad.top - pad.bottom),
   };
 }
 
@@ -715,21 +729,50 @@ function drawNumberedArrows(ctx, g, Y, lvl, bh, p, midX, metalX1, semiX0, semiX1
     // (hidden along with the arrow when it has fully shrunk)
     if (alpha > 0.3){
       const badgeR = 9;
-      const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
-      const nx = -uy, ny = ux;
-      const bx = cx + nx * (badgeR + 3);
-      const by = cy + ny * (badgeR + 3);
-      ctx.fillStyle = C.numBg;
-      ctx.strokeStyle = C.numFg;
-      ctx.lineWidth = 1.4;
-      ctx.beginPath(); ctx.arc(bx, by, badgeR, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
-      ctx.fillStyle = C.numFg;
-      ctx.font = '700 10px "JetBrains Mono", monospace';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(String(n), bx, by + 0.5);
+      const hitR = 13;
+      const badgeOffset = badgeR + 3;
+      const dx = x1 - x0, dy = y1 - y0;
+      const len2 = dx * dx + dy * dy;
+      const nx = -dy / len, ny = dx / len;
 
-      // hit target (radius ~13 for easy clicking)
-      _targets.push({ id: ar.id, num: n, x: bx, y: by, r: 13 });
+      /* Find a point on THIS shaft whose badge and complete touch target fit in
+         the canvas. Never clamp the rendered badge independently: clamping X/Y
+         can leave a visible number floating away from an off-screen arrow.
+         Search both sides of the shaft and prefer its midpoint. If the shaft has
+         no visible segment with room for the badge (the slab may be off-screen
+         before contact), neither badge nor hit target is exported. */
+      let bx = null, by = null, anchorX = null, anchorY = null;
+      let bestScore = Infinity;
+      for (let side of [1, -1]){
+        for (let i = 0; i <= 40; i++){
+          const t = i / 40;
+          const ax = x0 + dx * t, ay = y0 + dy * t;
+          const px = ax + nx * badgeOffset * side;
+          const py = ay + ny * badgeOffset * side;
+          if (px < hitR || px > g.W - hitR || py < hitR || py > g.H - hitR) continue;
+          const score = Math.abs(t - 0.5) + (side < 0 ? 0.001 : 0);
+          if (score < bestScore){
+            bestScore = score;
+            bx = px; by = py; anchorX = ax; anchorY = ay;
+          }
+        }
+      }
+      if (bx !== null){
+        ctx.fillStyle = C.numBg;
+        ctx.strokeStyle = C.numFg;
+        ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.arc(bx, by, badgeR, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = C.numFg;
+        ctx.font = '700 10px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(String(n), bx, by + 0.5);
+
+        // CSS-pixel target + geometry metadata for responsive placement audits.
+        _targets.push({
+          id: ar.id, num: n, x: bx, y: by, r: hitR,
+          anchorX, anchorY, x0, y0, x1, y1,
+        });
+      }
     }
     if (ctx.globalAlpha !== 1) ctx.globalAlpha = 1;
   }
@@ -765,12 +808,17 @@ function niceStepI(span){ const mag = niceSpan(span); if (mag == null) return SA
    4.  HIT TEST  (band canvas clicks → arrow id)
    ===================================================== */
 export function hitTestBand(mx, my){
-  for (let i = _targets.length - 1; i >= 0; i--){
-    const t = _targets[i];
+  let best = null;
+  let bestDistance = Infinity;
+  for (const t of _targets){
     const dx = mx - t.x, dy = my - t.y;
-    if (dx * dx + dy * dy <= t.r * t.r) return t.id;
+    const distance = Math.hypot(dx, dy);
+    if (distance <= t.r && distance < bestDistance){
+      best = t.id;
+      bestDistance = distance;
+    }
   }
-  return null;
+  return best;
 }
 
 /* =====================================================
@@ -778,8 +826,12 @@ export function hitTestBand(mx, my){
    ===================================================== */
 export function resizeAll(){ /* re-render is triggered by main.js */ }
 
-/* current clickable arrow hit-targets (CSS-pixel coords within the band canvas) */
-export function getArrowTargets(){ return _targets; }
+/* Return a detached snapshot: each entry is one completed render frame, so
+   automation cannot observe a partially-rebuilt live array. main.js publishes
+   this after every band paint, including contact-animation frames. */
+export function getArrowTargets(){
+  return _targets.map((t) => ({ ...t }));
+}
 
 /* =====================================================
    EXPORTS

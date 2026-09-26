@@ -89,6 +89,115 @@ const BANDMODEL = (() => {
     return Math.exp(-(E - Ef) / kT);
   }
 
+  /* ---------- 4b. INVERSE-CDF SAMPLERS — where a DRAWN electron sits ----------
+     Both exist because a particle animation picks a random number and maps it
+     to a pixel. If that number is uniform and the mapping is a straight line,
+     the picture claims electrons are uniform in energy, which is false: the
+     whole point of a Fermi level is that occupation is NOT uniform.
+
+     So each sampler is the exact inverse CDF of the physical distribution, and
+     `cbElectronDensity`/`fermiDirac` above are the densities being sampled.
+     Given a uniform u, they return the energy at which an electron would sit
+     with probability u. These are the only two places the drawn dots are
+     allowed to get an energy from.
+
+     MODELLING ASSUMPTIONS (both deliberate, both stated rather than hidden):
+       1. Semiconductor: cbElectronDensity() is a pure Boltzmann factor with no
+          √(E−E_C) density-of-states term. The samplers match it exactly, so the
+          curve and the dots can never disagree. Adding √E would be more exact
+          for bulk 3D and would make the drawn dots disagree with the one
+          documented density function in this codebase.
+       2. Metal: a constant DOS over a finite window around E_F. Real metals have
+          DOS ∝ √E, but near E_F it is smooth enough that constant is the
+          standard local approximation, and the window is only ±windowKt·kT wide
+          anyway — the filled sea continues below it and is not what is being
+          argued about. */
+
+  /* Tails are clamped so one lucky u cannot throw a shell off the top of the
+     panel. 8 kT still covers 1 − e⁻⁸ = 99.966% of the Boltzmann distribution,
+     so the clamp is a rendering guard, not a distortion. */
+  const TAIL_MAX_KT = 8;
+
+  /**
+   * Semiconductor conduction-band electron energy: the Boltzmann tail, E ≥ E_C.
+   *
+   * With x = (E − E_C)/kT the density ∝ e^{−(E−E_F)/kT} = e^{(E_C−E_F)/kT}·e^{−x},
+   * so the E_F dependence cancels and the CDF is exactly 1 − e^{−x}. Inverting:
+   *
+   *     x = −ln(1 − u)      E = E_C + kT·min(x, TAIL_MAX_KT)
+   *
+   * The E_C term is what makes this safe: **the result can never be below
+   * E_C**, i.e. never inside the band gap, where no conduction-band states
+   * exist. That is precisely the defect this replaces.
+   *
+   * @param {number} u     uniform in [0,1)
+   * @param {number} Ec    local conduction-band edge (eV)
+   * @param {number} T     temperature (K)
+   * @param {number} [maxKt] clamp the tail at this many kT
+   * @returns {number} energy ≥ Ec (eV)
+   */
+  function sampleTailEnergy(u, Ec, T, maxKt = TAIL_MAX_KT) {
+    const kT = THERMAL_V(T);
+    const uu = Math.min(Math.max(u, 0), 1 - 1e-12);
+    const x = -Math.log(1 - uu);
+    return Ec + kT * Math.min(x, maxKt);
+  }
+
+  /**
+   * Metal electron energy near E_F: Fermi–Dirac occupancy, constant DOS.
+   *
+   * Over [Ef − maxKt·kT, Ef + maxKt·kT] with a constant DOS the density is just
+   * f(E) = 1/(1 + e^{x}), x = (E − E_F)/kT. Its antiderivative is closed form
+   * and needs no table:
+   *
+   *     A(x) = −ln(1 + e^{−x}),      ∫_{−a}^{a} f dx = a
+   *
+   * so with y = u·a the inverse is x = −ln( e^{−y} + e^{a−y} − 1 ).
+   * Checks: u → 0 gives x → −a, u → 1 gives x → +a, and u = 0.5 gives
+   * x ≈ −2.95 kT for a = 6 — i.e. the MEDIAN electron sits well BELOW E_F,
+   * which is the whole meaning of an occupied sea. A uniform sampler would put
+   * the median on the line; that is the statistical error this removes.
+   *
+   * @param {number} u      uniform in [0,1)
+   * @param {number} Ef     Fermi level (eV)
+   * @param {number} T      temperature (K)
+   * @param {number} [maxKt] half-width of the drawn window, in kT
+   * @returns {number} energy within [Ef − maxKt·kT, Ef + maxKt·kT] (eV)
+   */
+  function sampleFermiEnergy(u, Ef, T, maxKt = 6) {
+    const kT = THERMAL_V(T);
+    const uu = Math.min(Math.max(u, 0), 1 - 1e-12);
+    const a = maxKt;
+    const y = uu * a;
+    /* arg = e^{−y} + e^{a−y} − 1  (algebraically (1+e^a)e^{−y} − 1, rearranged
+       so the u→1 case keeps the small e^{−a} term instead of cancelling it). */
+    const arg = Math.exp(-y) + Math.exp(a - y) - 1;
+    const x = -Math.log(Math.max(arg, 1e-12));
+    return Ef + kT * Math.min(Math.max(x, -a), a);
+  }
+
+  /**
+   * Fraction of the drawn metal window that lies ABOVE E_F, weighted by f(E).
+   *
+   * Used to decide how many shells to put above the Fermi line in the packed
+   * zoom grid. Both integrals are the closed form above, so the drawn split is
+   * the real Fermi weight over the real window rather than a number someone
+   * eyeballed:
+   *
+   *     P(above) = [A(xTop) − A(0)] / [A(xTop) − A(xBot)]
+   *
+   * @param {number} xBot lower edge of the window, in kT relative to E_F
+   * @param {number} xTop upper edge of the window, in kT relative to E_F
+   * @returns {number} probability mass above E_F, in (0,1)
+   */
+  function fermiWeightAbove(xBot, xTop) {
+    const A = (x) => -Math.log1p(Math.exp(-x));     // antiderivative of f
+    const lo = Math.min(xBot, xTop), hi = Math.max(xBot, xTop);
+    const total = A(hi) - A(lo);
+    if (!(total > 0)) return 0;
+    return Math.min(1, Math.max(0, (A(hi) - A(0)) / total));
+  }
+
   /* ---------- 5. Thermionic emission I–V (ideal Schottky diode) ---------- */
   function schottkyCurrent(p) {
     const bh = barrierHeight(p);
@@ -136,6 +245,10 @@ const BANDMODEL = (() => {
     depletion,
     fermiDirac,
     cbElectronDensity,
+    sampleTailEnergy,
+    sampleFermiEnergy,
+    fermiWeightAbove,
+    TAIL_MAX_KT,
     schottkyCurrent,
     RICHARDSON_A_STAR,
   };

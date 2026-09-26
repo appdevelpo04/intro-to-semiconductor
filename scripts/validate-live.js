@@ -112,7 +112,9 @@ const obCheck = await page.evaluate(() => ({
   textVal: document.getElementById('val-phi_m').value,
   sliderVal: document.getElementById('sl-phi_m').value,
   updateCalls: window.__SCHOTTKY_UPDATE_COUNT,     // must be exactly 1 (clamped, single render)
-  statusPhi: (document.getElementById('statusBar').textContent.match(/Φ_B = [\d.]+/) || [''])[0],
+  // KaTeX renders Φ_B with an invisible separator in textContent; match the
+  // displayed symbol/value rather than the source TeX spelling.
+  statusPhi: (document.getElementById('statusBar').textContent.match(/Φ[^=]*=\s*[\d.]+/) || [''])[0],
 }));
 console.log('--- after out-of-bound Φ_m=99 ---', JSON.stringify(obCheck));
 

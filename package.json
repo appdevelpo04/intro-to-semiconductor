@@ -11,9 +11,14 @@
     "check:physics": "bun scripts/physics-check.js",
     "check:contact": "bun scripts/validate-contact.js",
     "check:layout": "bun scripts/layout-audit.js",
+    "check:layout:1080p": "bun scripts/layout-1080p.js",
     "check:fermi": "bun scripts/fermi-audit.js",
     "check:live": "bun scripts/validate-live.js",
-    "check": "bun run check:physics && bun run check:render && bun run check:layout && bun run check:contact && bun x astro build"
+    "check:flow:physics": "bun scripts/flow-physics-check.js",
+    "check:flow:sim": "bun scripts/flow-sim-check.js",
+    "check:flow:render": "bun scripts/flow-render-check.js",
+    "check:flow:e2e": "bun scripts/flow-e2e.js",
+    "check": "bun run check:physics && bun run check:render && bun run check:layout && bun run check:layout:1080p && bun run check:contact && bun run check:flow:physics && bun run check:flow:sim && bun run check:flow:render && bun x astro build"
   },
   "dependencies": {
     "astro": "^7.3.2",

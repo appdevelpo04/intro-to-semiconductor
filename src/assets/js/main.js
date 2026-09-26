@@ -248,12 +248,18 @@ function legendReserve(){
 function paintBand(){
   if (!lastModel) return;
   renderBand(bandCanvas, lastModel, animFrac, { reservedBottom: legendReserve() });
+  // Publish a detached snapshot only after renderBand has finished rebuilding
+  // this frame. Repaint on every animation frame keeps click coordinates and
+  // shaft metadata synchronized with the displayed arrows.
+  window.__SCHOTTKY_TARGETS = getArrowTargets();
 }
 
-/* Park the "Magnify f(E)" chip on the inset's top-right corner. The chip is a
-   real <button> (keyboard + a11y for free) while the inset is painted pixels on
-   the canvas, so we mirror the inset's live rect onto the button rather than
-   trying to make canvas pixels focusable. */
+/* Park the "Magnify f(E)" chip beside the inset. The chip is a real <button>
+   (keyboard + a11y for free) while the inset is painted pixels on the canvas,
+   so mirror the inset's live rect onto the button rather than making canvas
+   pixels focusable. On narrow screens the default top-right corner can sit on
+   top of a badge, so choose the first corner that clears every current arrow
+   touch target. */
 function positionFermiBtn(){
   if (!fermiBtn || !plotWrap) return;
   const inset = getFermiInset();
@@ -267,10 +273,32 @@ function positionFermiBtn(){
   // both are measured in CSS px; the canvas is absolutely positioned at the
   // wrap's top-left, so (cvBox - wrapBox) is the diagram's origin inside it
   const w = fermiBtn.offsetWidth, h = fermiBtn.offsetHeight;
-  const left = (cvBox.left - wrapBox.left) + inset.x + inset.w - w;
-  const top  = (cvBox.top  - wrapBox.top ) + inset.y - h - 6;
-  fermiBtn.style.left = Math.max(4, Math.min(left, wrapBox.width  - w - 4)) + 'px';
-  fermiBtn.style.top  = Math.max(4, Math.min(top,  wrapBox.height - h - 4)) + 'px';
+  const originX = cvBox.left - wrapBox.left, originY = cvBox.top - wrapBox.top;
+  const minX = 4, minY = 4;
+  const maxX = Math.max(minX, wrapBox.width  - w - minX);
+  const maxY = Math.max(minY, wrapBox.height - h - minY);
+  const clamp = (left, top) => ({
+    left: Math.max(minX, Math.min(left, maxX)),
+    top: Math.max(minY, Math.min(top, maxY)),
+  });
+  const candidates = [
+    { left: inset.x + inset.w - w, top: inset.y - h - 6 }, // preferred: top-right
+    { left: inset.x,              top: inset.y - h - 6 }, // top-left
+    { left: inset.x + inset.w - w, top: inset.y + inset.h + 6 }, // bottom-right
+    { left: inset.x,              top: inset.y + inset.h + 6 }, // bottom-left
+  ].map((candidate) => clamp(originX + candidate.left, originY + candidate.top));
+
+  // A chip is a DOM hit target above the canvas. Keep it outside every arrow's
+  // full touch circle, not just outside the visible 9px badge.
+  const overlapsArrow = (candidate) => getArrowTargets().some((t) => {
+    const chipX = candidate.left - originX, chipY = candidate.top - originY;
+    const nearestX = Math.max(chipX, Math.min(t.x, chipX + w));
+    const nearestY = Math.max(chipY, Math.min(t.y, chipY + h));
+    return Math.hypot(t.x - nearestX, t.y - nearestY) < t.r + 4;
+  });
+  const position = candidates.find((candidate) => !overlapsArrow(candidate)) || candidates[0];
+  fermiBtn.style.left = position.left + 'px';
+  fermiBtn.style.top = position.top + 'px';
 }
 
 /* hover feedback: repainting the band gives the inset its accent frame */
@@ -348,7 +376,6 @@ function update() {
   lastModel = BANDMODEL.model(params);
   window.__SCHOTTKY_MODEL = lastModel;     // fallback for detail.js
   updateFermiModel(lastModel);             // keep fermi modal in sync
-  window.__SCHOTTKY_TARGETS = getArrowTargets();  // clickable arrow hit targets
   // Status FIRST: writing it can change the flex column's free space (status
   // grows from empty at boot), and the canvases below measure their wrapper
   // during fit — painting before the status settles made the graph canvas
@@ -436,6 +463,20 @@ window.addEventListener('resize', () => {
     positionFermiBtn();          // inset rect moved with the canvas
   }, 120);
 });
+
+/* Canvas dimensions can change without a window resize when late math/font
+   layout settles or the right panel's scrollbar/status bar reflows. Observe the
+   actual wrappers so the backing store and DPR transform always match what is
+   painted. The callback is rAF-coalesced to avoid a resize feedback loop. */
+if ('ResizeObserver' in window){
+  const canvasResize = new ResizeObserver(() => {
+    autoCollapseLegend();
+    scheduleUpdate();
+    positionFermiBtn();
+  });
+  canvasResize.observe(plotWrap);
+  canvasResize.observe($('graphWrap'));
+}
 
 /* ============================ boot ============================ */
 renderMathIn(document);          // static [data-tex]/[data-md] markup (topbar chip, 🤓 pane)

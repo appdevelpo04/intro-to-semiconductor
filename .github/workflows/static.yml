@@ -41,6 +41,9 @@ jobs:
         run: |
           bun run check:physics
           bun run check:render
+          bun run check:flow:physics
+          bun run check:flow:sim
+          bun run check:flow:render
         env:
           CI: true
 

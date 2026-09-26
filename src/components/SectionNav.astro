@@ -1,0 +1,68 @@
+---
+// The entry point between the two demos.
+//
+// WHY this exists: /flow/ shipped with NO route into it. BaseLayout had only a
+// <slot />, so the electron-flow animation was reachable only by typing the URL
+// — which is why "where is the flowing electron?" was answerable with "the page
+// nobody can navigate to". Both demos are now on ONE page (`/`), and this is the
+// control that moves between them.
+//
+// WHY it is rendered from the layout, not from each demo: both sections render
+// their own header, so putting a nav in Schottky.astro and Flow.astro produced
+// FOUR links (two per section) and no way to tell which section you were in.
+// Rendering it once, at the top of the page, fixes both.
+//
+// `current` marks the active section for styling + aria-current only; it never
+// controls visibility. Both sections are always in the DOM and scroll into view.
+const { current = 'alignment' } = Astro.props;
+const items = [
+  { id: 'alignment', label: 'Band alignment', href: '#alignment' },
+  { id: 'flow', label: 'Electron flow', href: '#flow' },
+];
+---
+<nav class="secnav" aria-label="Demo sections">
+  {items.map((it) => (
+    <a
+      href={it.href}
+      class:list={['secnav-link', { active: it.id === current }]}
+      data-section={it.id}
+      aria-current={it.id === current ? 'true' : undefined}
+    >{it.label}</a>
+  ))}
+</nav>
+
+<script>
+  /* Scroll-spy: the nav is fixed, so it has to say which section you are
+     actually looking at. Without this the "active" chip is frozen on whatever
+     the server rendered and lies after the first scroll. */
+  const app = document.querySelector('.app');
+  const links = [...document.querySelectorAll('.secnav-link')];
+  if (app && links.length) {
+    const setActive = (id) => {
+      for (const a of links) {
+        const on = a.dataset.section === id;
+        a.classList.toggle('active', on);
+        if (on) a.setAttribute('aria-current', 'true');
+        else a.removeAttribute('aria-current');
+      }
+    };
+    let raf = 0;
+    const spy = () => {
+      raf = 0;
+      /* the section whose top is nearest the top of the scroll port wins */
+      const mid = app.getBoundingClientRect().top + app.clientHeight * 0.4;
+      let best = null, bestD = Infinity;
+      for (const a of links) {
+        const el = document.getElementById(a.dataset.section);
+        if (!el) continue;
+        const d = Math.abs(el.getBoundingClientRect().top - mid);
+        if (d < bestD) { bestD = d; best = a.dataset.section; }
+      }
+      if (best) setActive(best);
+    };
+    app.addEventListener('scroll', () => {
+      if (!raf) raf = requestAnimationFrame(spy);
+    }, { passive: true });
+    spy();
+  }
+</script>

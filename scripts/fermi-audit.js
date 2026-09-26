@@ -59,18 +59,23 @@ if (!PAGE_URL){ console.error('dev server never came up on :' + PORT); process.e
 /* Desktop-first, then the awkward ones: tablet portrait/landscape and the
    narrowest phones we support, where the modal must scroll rather than clip. */
 const VIEWPORTS = [
-  ['1920x1080', 1920, 1080], ['1440x900', 1440, 900], ['1280x800', 1280, 800],
-  ['1024x768', 1024, 768],   ['834x1112', 834, 1112], ['768x1024', 768, 1024],
-  ['430x932', 430, 932],     ['390x844', 390, 844],   ['360x640', 360, 640],
-  ['844x390', 844, 390] /* landscape phone */,
+  ['1920x1080@1x', 1920, 1080, 1], ['2560x1440@1x', 2560, 1440, 1],
+  ['1440x900@1x', 1440, 900, 1], ['1280x800@1x', 1280, 800, 1],
+  ['1024x768@1x', 1024, 768, 1], ['834x1112@2x', 834, 1112, 2],
+  ['768x1024@2x', 768, 1024, 2], ['430x932@3x', 430, 932, 3],
+  ['390x844@2x', 390, 844, 2], ['360x640@3x', 360, 640, 3],
+  ['844x390@3x', 844, 390, 3] /* landscape phone */,
 ];
 
 const issues = [];
 console.log('auditing ' + PAGE_URL + ' across ' + VIEWPORTS.length + ' viewports');
 const browser = await chromium.launch();
 
-for (const [tag, W, H] of VIEWPORTS){
-  const page = await browser.newPage({ viewport: { width: W, height: H } });
+for (const [tag, W, H, DPR] of VIEWPORTS){
+  const page = await browser.newPage({
+    viewport: { width: W, height: H },
+    deviceScaleFactor: DPR,
+  });
   const errs = [];
   page.on('pageerror', (e) => errs.push(String(e)));
   const flag = (id, cond, detail) => {
@@ -265,10 +270,19 @@ for (const [tag, W, H] of VIEWPORTS){
       const c = band.getBoundingClientRect();
       const i = window.__SCHOTTKY_FERMI_INSET;
       if (!i) return null;
-      // a point low inside the inset, clear of the chip parked above it
-      return { x: c.left + i.x + i.w / 2, y: c.top + i.y + i.h * 0.75 };
+      // Use the center: the chip is parked above the inset, while a lower point
+      // can land exactly on the viewport bottom when a 2K canvas nearly fills it.
+      const x = c.left + i.x + i.w / 2;
+      const y = c.top + i.y + i.h / 2;
+      const inCanvas = x > c.left && x < c.right && y > c.top && y < c.bottom;
+      const inViewport = x > 0 && x < innerWidth && y > 0 && y < innerHeight;
+      return { x, y, inCanvas, inViewport };
     });
     if (hit){
+      flag('inset-probe-outside-canvas', hit.inCanvas && hit.inViewport,
+        `click probe ${JSON.stringify(hit)}`);
+    }
+    if (hit && hit.inCanvas && hit.inViewport){
       await page.mouse.click(hit.x, hit.y);
       await page.waitForTimeout(420);
       flag('inset-not-clickable',

@@ -1,0 +1,81 @@
+---
+// Electron-flow-on-contact demo: a 4-stage timeline (separated → contact →
+// transient diffusion → equilibrium) over a single band diagram canvas.
+//
+// Reuses the same visual language as the main Schottky page (panels, mono
+// captions, canvas-wrap) so the two read as one project.
+---
+<section class="flowpage" id="flow">
+  <header class="topbar">
+    <div>
+      <h1>Electron Flow on Contact — Metal | n-type Semiconductor</h1>
+      <p class="sub">Charge transfer until the Fermi levels equalize · then the flow stops</p>
+    </div>
+    <div class="formula">
+      <span data-tex="N_D W = n_{\mathrm{transferred}}"></span>
+      <small>&nbsp; (charge neutrality fixes how much moves)</small>
+    </div>
+  </header>
+
+  <div class="flow-main">
+    <section class="panel-plot">
+      <div class="panel-header">
+        <h2>Contact formation <span class="muted">(energy vs. position)</span></h2>
+        <div class="flow-transport">
+          <button class="btn-ghost" id="flowPlay" type="button" aria-label="Play or pause the animation">Pause</button>
+          <button class="btn-ghost" id="flowReplay" type="button">Replay</button>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div class="canvas-wrap" id="flowWrap">
+          <canvas id="flowCanvas" aria-label="Band diagram showing electrons flowing from the n-type semiconductor into the metal when contact is made"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel-graph">
+      <div class="panel-header">
+        <h2>Stage <span class="muted">(scrub the timeline)</span></h2>
+      </div>
+      <div class="panel-body flow-side">
+        <ol class="flow-stages" id="flowStages" aria-label="Animation stages"></ol>
+
+        <label class="ctl-row" for="flowScrub">
+          <span class="ctl-label">Timeline <span class="unit" id="flowTval">t = 0.00</span></span>
+          <input type="range" id="flowScrub" min="0" max="1000" step="1" value="0"
+                 aria-label="Scrub the animation timeline" />
+        </label>
+
+        <div class="flow-keys">
+          <span><kbd>Space</kbd> play / pause</span>
+          <span><kbd>←</kbd><kbd>→</kbd> step stage</span>
+          <span><kbd>1</kbd>–<kbd>4</kbd> jump to stage</span>
+        </div>
+
+        <div class="flow-legend">
+          <p class="flow-legend-note">
+            <b>Equilibrium is not “current keeps flowing”.</b> Electrons cross in
+            <i>both</i> directions in enormous numbers, but the two fluxes balance, so the
+            net current is exactly zero. The animation shows one-way arrows only
+            while there is a driving force left to spend.
+          </p>
+          <dl class="flow-key">
+            <dt><span class="sw sw-shell"></span> wireframe shell</dt>
+            <dd>one electron — hollow, so a dense cloud stays countable</dd>
+            <dt><span class="sw sw-flow"></span> batch crossing</dt>
+            <dd>glowing shells queue at the junction, one lane each</dd>
+            <dt><span class="sw sw-peak"></span> peak density</dt>
+            <dd>the metal surface — where every transferred electron stops</dd>
+            <dt><span class="sw sw-hole"></span> depletion</dt>
+            <dd>the density hole those electrons left behind</dd>
+          </dl>
+        </div>
+      </div>
+    </section>
+  </div>
+</section>
+
+<script>
+  // Astro-processed script: bundled+hashed at build time, served as a module in dev.
+  import '../assets/js/flow-main.js';
+</script>

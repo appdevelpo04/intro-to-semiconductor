@@ -53,6 +53,78 @@ body {
   overflow: hidden;
 }
 
+/* ---------- one scrolling page, one viewport per section ----------
+   Both demos now live on `/` (SectionNav jumps between them), so the shell has
+   to hold two full-height sections. Each section stays EXACTLY 100vh so the
+   internal panel behaviour is unchanged — the panels still scroll inside their
+   own column, exactly as when each page stood alone. Only the outer container
+   scrolls, and only to move between sections. */
+.app {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+  scroll-snap-type: y proximity;
+}
+.app > .schottky,
+.app > .flowpage {
+  /* definite height: this is what keeps .main / .flow-main filling the
+     viewport and scrolling internally, as they did as standalone pages */
+  height: 100vh;
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+}
+@media (prefers-reduced-motion: reduce) {
+  .app { scroll-behavior: auto; scroll-snap-type: none; }
+}
+
+/* ---------- the entry point between the two demos ----------
+   Fixed to the top-right so it stays reachable while either section scrolls.
+   z-index sits above .detail-panel and .legend so it is never covered. */
+.secnav {
+  position: fixed;
+  top: 14px;
+  right: 18px;
+  z-index: 60;
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: rgba(7, 11, 23, 0.92);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  backdrop-filter: blur(6px);
+}
+.secnav-link {
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  color: var(--muted);
+  text-decoration: none;
+  padding: 5px 13px;
+  border-radius: 6px;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+.secnav-link:hover { color: var(--text); background: rgba(255, 255, 255, 0.06); }
+.secnav-link:focus-visible { outline: none; box-shadow: 0 0 0 2px rgba(0, 229, 176, 0.5); }
+.secnav-link.active {
+  color: #070b17;
+  background: var(--accent);
+}
+
+/* The nav is fixed at the top-right, where each section's .formula chip also
+   lives. Nudge the chip clear of it instead of letting them overlap. */
+.topbar .formula { margin-right: 250px; }
+@media (max-width: 900px) {
+  /* too narrow for both — the chip yields, the nav keeps its place */
+  .topbar .formula { margin-right: 0; }
+  .secnav { top: auto; bottom: 14px; right: 14px; }
+}
+
 /* ---------- Top bar ---------- */
 .topbar {
   display: flex;
@@ -822,3 +894,150 @@ body {
   .fermi-modal canvas { height: 200px; }
   .fermi-info { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
+
+/* =====================================================
+   ELECTRON-FLOW PAGE  (src/pages/flow.astro)
+   Same panel language as the Schottky page, so the two
+   read as one project. Scoped to .flowpage.
+   ===================================================== */
+.flowpage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Left canvas + right sidebar. minmax(0,…) on the canvas column stops the
+   absolutely-positioned canvas from being counted as content width. */
+.flow-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  grid-template-rows: minmax(0, 1fr);
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.flow-main .panel-graph { overflow-y: auto; overscroll-behavior: contain; }
+.flow-main .panel-plot { border-right: 1px solid var(--line); }
+
+.flow-transport { display: flex; gap: 8px; }
+.flow-transport .btn-ghost {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--line);
+  color: var(--text);
+  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: var(--sans);
+  min-width: 74px;
+  transition: background 0.15s, border-color 0.15s;
+}
+.flow-transport .btn-ghost:hover { background: rgba(0,229,176,0.14); border-color: var(--accent); }
+.flow-transport .btn-ghost:focus-visible { outline: none; box-shadow: 0 0 0 2px rgba(0,229,176,0.5); }
+
+.flow-side {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px 16px 18px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* ---------- stage chips ---------- */
+.flow-stages { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.flow-stage-btn {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  grid-template-areas: 'id label' '. blurb';
+  gap: 2px 8px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-left: 3px solid var(--line);
+  border-radius: 6px;
+  padding: 7px 9px;
+  cursor: pointer;
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: 12.5px;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.flow-stage-btn:hover { background: rgba(255,255,255,0.04); color: var(--text); }
+.flow-stage-btn:focus-visible { outline: none; box-shadow: 0 0 0 2px rgba(0,229,176,0.5); }
+.flow-stage-btn.active {
+  background: rgba(0,229,176,0.10);
+  border-left-color: var(--accent);
+  color: var(--text);
+}
+.flow-stage-id {
+  grid-area: id;
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--accent);
+}
+.flow-stage-label { grid-area: label; font-weight: 600; }
+.flow-stage-blurb {
+  grid-area: blurb;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--muted);
+  opacity: 0.85;
+}
+
+/* ---------- scrub + keys ---------- */
+.flow-side .ctl-row { margin-bottom: 0; }
+.flow-side .ctl-label { font-size: 13px; color: var(--muted); }
+.flow-keys { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 11.5px; color: var(--muted); }
+.flow-keys kbd {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 1px 5px;
+  margin-right: 2px;
+}
+
+/* ---------- the equilibrium correction, stated on the page ---------- */
+.flow-legend {
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--ok);
+  border-radius: 6px;
+  padding: 10px 12px;
+  background: rgba(61,240,192,0.06);
+}
+.flow-legend-note { margin: 0; font-size: 12px; line-height: 1.5; color: var(--muted); }
+.flow-legend-note b { color: var(--ok); }
+.flow-legend-note i { color: var(--text); font-style: italic; }
+
+@media (max-width: 900px) {
+  .flow-main { grid-template-columns: 1fr; grid-template-rows: none; grid-auto-rows: max-content; }
+  .flow-main .panel-plot { border-right: none; border-bottom: 1px solid var(--line); min-height: 58vh; }
+  .flow-side { overflow: visible; }
+}
+
+/* ---------- flow-page visual key (explains the new diagram elements) ---------- */
+.flow-key {
+  margin: 12px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 5px 9px;
+  font-size: 11.5px;
+  line-height: 1.4;
+  align-items: baseline;
+}
+.flow-key dt { color: var(--text); font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.flow-key dd { margin: 0; color: var(--muted); }
+
+/* swatches mirror the canvas palette (flow-render.js) */
+.sw { width: 11px; height: 11px; border-radius: 50%; flex: 0 0 auto; display: inline-block; }
+.sw-shell  { border: 1.2px solid #5aaaff; }                       /* hollow ring  */
+.sw-flow   { border: 1.4px solid #bfe3ff; box-shadow: 0 0 5px rgba(91,170,255,0.9); }
+.sw-peak   { background: #ffb347; border-radius: 2px; }            /* metal pile-up */
+.sw-hole   { border: 1.2px dashed #ff6b6b; border-radius: 2px; }   /* depletion    */

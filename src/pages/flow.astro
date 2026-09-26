@@ -1,0 +1,26 @@
+---
+// Kept only so the old deep link keeps working. The content now lives on `/`
+// alongside the band-alignment demo (see src/pages/index.astro) — one page, so
+// the two diagrams can be read against each other. Anyone hitting /flow/ is sent
+// to the flow section on that page.
+//
+// A no-JS fallback link is included because <meta http-equiv> refresh is the
+// only redirect that works without JavaScript, and this page has none.
+//
+// The target is built from BASE_URL rather than written out, so it keeps
+// working if `base` in astro.config changes.
+const target = import.meta.env.BASE_URL.replace(/\/$/, '') + '/#flow';
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Moved — Electron Flow on Contact</title>
+    <meta http-equiv="refresh" content={`0; url=${target}`} />
+    <link rel="canonical" href={target} />
+    <meta name="robots" content="noindex" />
+  </head>
+  <body>
+    <p>This page moved. <a href={target}>Electron flow on contact</a>.</p>
+  </body>
+</html>

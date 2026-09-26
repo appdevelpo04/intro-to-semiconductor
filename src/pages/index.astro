@@ -1,8 +1,15 @@
 ---
+// Both demos live on ONE page. /flow/ was previously a separate route with no
+// link to or from it — BaseLayout rendered only a <slot />, so nothing in the
+// site pointed at the electron-flow animation and nothing pointed back. One
+// page, two sections, SectionNav jumps between them, so the band alignment and
+// the flow can be read against each other without navigating.
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Schottky from '../components/Schottky.astro';
+import Flow from '../components/Flow.astro';
 ---
 
 <BaseLayout>
   <Schottky />
+  <Flow />
 </BaseLayout>
